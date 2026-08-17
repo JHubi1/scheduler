@@ -28,11 +28,13 @@ void main() {
         final events = <(int, TaskProgress?)>[];
         snatcher.addListener(events.add);
 
-        await bundle.invoke<int, int>(
-          ProgressTask,
-          3,
-          progressBroadcaster: snatcher.auto,
-        );
+        await bundle
+            .invoke<int, int>(
+              ProgressTask,
+              3,
+              progressBroadcaster: snatcher.auto,
+            )
+            .output;
 
         final progressEvents = events
             .where((e) => e.$2 != null)
@@ -52,11 +54,13 @@ void main() {
         final events = <(int, TaskProgress?)>[];
         snatcher.addListener(events.add);
 
-        await bundle.invoke<String, String>(
-          EchoTask,
-          "hello",
-          progressBroadcaster: snatcher.auto,
-        );
+        await bundle
+            .invoke<String, String>(
+              EchoTask,
+              "hello",
+              progressBroadcaster: snatcher.auto,
+            )
+            .output;
 
         expect(events.any((e) => e.$2 == null), isTrue);
       });
@@ -105,11 +109,13 @@ void main() {
           ..addListener(listener)
           ..removeListener(listener);
 
-        await bundle.invoke<String, String>(
-          EchoTask,
-          "test",
-          progressBroadcaster: snatcher.auto,
-        );
+        await bundle
+            .invoke<String, String>(
+              EchoTask,
+              "test",
+              progressBroadcaster: snatcher.auto,
+            )
+            .output;
 
         expect(events, isEmpty);
       });

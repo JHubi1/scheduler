@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:isolate' show RemoteError;
 
 import 'package:scheduler/tasks.dart';
 import 'package:test/test.dart';
@@ -102,6 +101,7 @@ void main() {
         () => expect(meta.maintainer, "Test Maintainer"),
       );
       test("parses description", () => expect(meta.description, "A test task"));
+      test("parses icon", () => expect(meta.icon, Uri.parse("pack:flower")));
       test("parses license", () => expect(meta.license, "MIT"));
       test(
         "parses repository",
@@ -189,12 +189,12 @@ void main() {
       },
     );
 
-    test("invoke propagates task errors as RemoteError", () async {
+    test("invoke propagates task errors as RemoteException", () async {
       final instance = await FailingTask().spawn();
       addTearDown(instance.close);
 
       final (_, future) = instance.invoke("trigger");
-      await expectLater(future, throwsA(isA<RemoteError>()));
+      await expectLater(future, throwsA(isA<RemoteException>()));
     });
 
     test(

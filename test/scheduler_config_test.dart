@@ -3,8 +3,8 @@ import 'package:test/test.dart';
 
 void main() {
   group("SchedulerConfig", () {
-    test("simultaneousTasks defaults to 5", () {
-      expect(const SchedulerConfig().simultaneousTasks, 5);
+    test("simultaneousInvocations defaults to 5", () {
+      expect(const SchedulerConfig().simultaneousInvocations, 5);
     });
 
     test("cullingInterval defaults to 5 seconds", () {
@@ -20,18 +20,18 @@ void main() {
 
     group("copyWith", () {
       test("preserves all fields when no overrides are given", () {
-        const config = SchedulerConfig(simultaneousTasks: 3);
+        const config = SchedulerConfig(simultaneousInvocations: 3);
         final copy = config.copyWith();
-        expect(copy.simultaneousTasks, 3);
+        expect(copy.simultaneousInvocations, 3);
         expect(copy.cullingInterval, config.cullingInterval);
         expect(copy.cullingIdle, config.cullingIdle);
       });
 
-      test("overrides simultaneousTasks", () {
+      test("overrides simultaneousInvocations", () {
         expect(
           const SchedulerConfig()
-              .copyWith(simultaneousTasks: 10)
-              .simultaneousTasks,
+              .copyWith(simultaneousInvocations: 10)
+              .simultaneousInvocations,
           10,
         );
       });
@@ -57,10 +57,10 @@ void main() {
       test("overrides multiple fields simultaneously", () {
         const config = SchedulerConfig();
         final copy = config.copyWith(
-          simultaneousTasks: 2,
+          simultaneousInvocations: 2,
           cullingInterval: const Duration(seconds: 1),
         );
-        expect(copy.simultaneousTasks, 2);
+        expect(copy.simultaneousInvocations, 2);
         expect(copy.cullingInterval, const Duration(seconds: 1));
         expect(copy.cullingIdle, config.cullingIdle);
       });

@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:scheduler/tasks.dart';
 import 'package:test/test.dart';
+
+import 'helpers.dart';
 
 void main() {
   group("TaskProgress", () {
@@ -196,25 +200,33 @@ void main() {
   });
 
   group("TaskProgressBroadcaster", () {
-    test("initial progress is unknown", () {
-      final broadcaster = TaskProgressBroadcaster(invocationId: 1);
+    Future<TaskProgressBroadcaster> spawnBroadcaster() async {
+      final instance = await EchoTask().spawn();
+      addTearDown(instance.close);
+      final completer = Completer<TaskProgressBroadcaster>();
+      instance.invoke("hello", progressBroadcaster: completer.complete);
+      return completer.future;
+    }
+
+    test("initial progress is unknown", () async {
+      final broadcaster = await spawnBroadcaster();
       expect(broadcaster.progress, equals(TaskProgress.unknown()));
     });
 
-    test("addListener does not throw", () {
-      final broadcaster = TaskProgressBroadcaster(invocationId: 1);
+    test("addListener does not throw", () async {
+      final broadcaster = await spawnBroadcaster();
       expect(() => broadcaster.addListener((_) {}), returnsNormally);
     });
 
-    test("removeListener does not throw for a registered listener", () {
-      final broadcaster = TaskProgressBroadcaster(invocationId: 1);
+    test("removeListener does not throw for a registered listener", () async {
+      final broadcaster = await spawnBroadcaster();
       void listener(TaskProgress p) {}
       broadcaster.addListener(listener);
       expect(() => broadcaster.removeListener(listener), returnsNormally);
     });
 
-    test("removeListener is a no-op for an unknown listener", () {
-      final broadcaster = TaskProgressBroadcaster(invocationId: 1);
+    test("removeListener is a no-op for an unknown listener", () async {
+      final broadcaster = await spawnBroadcaster();
       expect(() => broadcaster.removeListener((_) {}), returnsNormally);
     });
   });

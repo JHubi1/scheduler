@@ -45,8 +45,8 @@ final scheduler = Scheduler([JsonDecoder()]);
 Finally, invoke the Task by running:
 
 ```dart
-final result = await scheduler.invoke(JsonDecoder, '{"key":"value"}');
-print(result); // {key: value}
+final status = await scheduler.invoke(JsonDecoder, '{"key": "value"}');
+print((await status.future).success?.output); // {key: value}
 ```
 
-See [`example/scheduler_example.dart`](https://github.com/JHubi1/scheduler/blob/main/example/scheduler_example.dart) for a more detailed usage example and consult the documentation (`dart doc .`) for help.
+See [`example/scheduler_example.dart`](https://github.com/JHubi1/scheduler/blob/main/example/scheduler_example.dart) for a more detailed usage example and consult the documentation (`dart doc --validate-links .`) for help.

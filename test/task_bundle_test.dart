@@ -28,7 +28,7 @@ void main() {
 
       test("returns the correct output for a known task id", () async {
         expect(
-          await bundle.invokeNamed<String, String>("echoTask", "hello"),
+          await bundle.invokeNamed<String, String>("echoTask", "hello").output,
           "hello",
         );
       });
@@ -47,7 +47,10 @@ void main() {
       tearDown(() => bundle.close());
 
       test("returns the correct output for a known task type", () async {
-        expect(await bundle.invoke<String, String>(EchoTask, "world"), "world");
+        expect(
+          await bundle.invoke<String, String>(EchoTask, "world").output,
+          "world",
+        );
       });
 
       test("throws ArgumentError for an unknown task type", () async {
@@ -63,7 +66,7 @@ void main() {
         final bundle = TaskBundle([EchoTask()], startCulling: false);
         addTearDown(bundle.close);
 
-        await bundle.invoke<String, String>(EchoTask, "test");
+        await bundle.invoke<String, String>(EchoTask, "test").output;
         expect(bundle.running, contains("echoTask"));
       });
     });
@@ -82,7 +85,7 @@ void main() {
             throwsStateError,
           );
 
-          await first;
+          await first.output;
         },
       );
     });
@@ -138,10 +141,12 @@ void main() {
             idleTime: const Duration(milliseconds: 60),
           );
 
-          await bundle.invoke<Duration, String>(
-            DelayedTask,
-            const Duration(milliseconds: 50),
-          );
+          await bundle
+              .invoke<Duration, String>(
+                DelayedTask,
+                const Duration(milliseconds: 50),
+              )
+              .output;
 
           bundle.stopCulling();
           expect(bundle.running, contains("delayedTask"));
@@ -152,7 +157,7 @@ void main() {
         final bundle = TaskBundle([EchoTask()], startCulling: false);
         addTearDown(bundle.close);
 
-        await bundle.invoke<String, String>(EchoTask, "before");
+        await bundle.invoke<String, String>(EchoTask, "before").output;
 
         bundle.startCulling(
           interval: const Duration(milliseconds: 10),
@@ -161,7 +166,10 @@ void main() {
         await Future.delayed(const Duration(milliseconds: 60));
         bundle.stopCulling();
 
-        expect(await bundle.invoke<String, String>(EchoTask, "after"), "after");
+        expect(
+          await bundle.invoke<String, String>(EchoTask, "after").output,
+          "after",
+        );
       });
     });
 
@@ -173,7 +181,7 @@ void main() {
         final updates = <String>[];
         bundle.addListener(updates.add);
 
-        await bundle.invoke<String, String>(EchoTask, "test");
+        await bundle.invoke<String, String>(EchoTask, "test").output;
         expect(updates, contains("echoTask"));
       });
 
@@ -187,7 +195,7 @@ void main() {
           ..addListener(listener)
           ..removeListener(listener);
 
-        await bundle.invoke<String, String>(EchoTask, "test");
+        await bundle.invoke<String, String>(EchoTask, "test").output;
         expect(updates, isEmpty);
       });
     });
@@ -198,11 +206,13 @@ void main() {
         addTearDown(bundle.close);
 
         final received = <TaskProgress>[];
-        await bundle.invoke<int, int>(
-          ProgressTask,
-          3,
-          progressBroadcaster: (b) => b.addListener(received.add),
-        );
+        await bundle
+            .invoke<int, int>(
+              ProgressTask,
+              3,
+              progressBroadcaster: (b) => b.addListener(received.add),
+            )
+            .output;
 
         expect(received, isNotEmpty);
       });

@@ -3,16 +3,19 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
+import 'dart:isolate' hide RemoteError;
 
 import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
+import 'package:retry/retry.dart';
 import 'progress_snatcher.dart';
+import 'remote_exception.dart';
+import 'retry_options.dart';
 
 int _idCounter = 0;
 
 /// A class that represents the progress of a task.
-class TaskProgress {
+final class TaskProgress {
   /// The progress of the task, represented as a value between 0.0 and 1.0, -1.0,
   /// or `null`
   ///
@@ -180,9 +183,10 @@ class TaskProgress {
 }
 
 /// A class that allows a task to communicate its progress back to the caller.
-class TaskProgressCommunicator {
+final class TaskProgressCommunicator {
   TaskProgress _progress = TaskProgress.unknown();
   final bool Function(TaskProgress progress) _setProgress;
+  final bool Function() _getIsClosed;
 
   /// Gets the current progress of the task.
   ///
@@ -199,32 +203,45 @@ class TaskProgressCommunicator {
     if (_setProgress(progress)) _progress = progress;
   }
 
-  TaskProgressCommunicator._({required this._setProgress});
+  /// Returns `true` if the application has requested the closure of the
+  /// invocation.
+  ///
+  /// This should be honored and checked after every major asynchronous
+  /// operation in the task. If this returns `true`, the task should stop its
+  /// work and return as soon as possible. The task should not throw an
+  /// exception or return an error, but should return a normal result if,
+  /// possible, or a default value if not.
+  bool get isClosed => _getIsClosed();
+
+  TaskProgressCommunicator._({
+    required this._setProgress,
+    required this._getIsClosed,
+  });
 
   @override
   String toString() {
     final buffer = StringBuffer()
       ..write("TaskProgressCommunicator(")
       ..write("progress: $_progress")
+      ..write(", isClosed: $isClosed")
       ..write(")");
     return buffer.toString();
   }
 }
 
 /// A class that allows a task to broadcast its progress to multiple listeners.
-class TaskProgressBroadcaster {
+final class TaskProgressBroadcaster {
   bool _closed = false;
 
   TaskProgress _progress = TaskProgress.unknown();
   TaskProgress get progress => _progress.copyWith();
 
   final int invocationId;
-  TaskProgressBroadcaster({required this.invocationId});
+  TaskProgressBroadcaster._({required this.invocationId});
 
   late final _controller = StreamController<TaskProgress>.broadcast(sync: true)
     ..stream.listen((p) => _progress = p);
   final Map<void Function(TaskProgress), StreamSubscription> _listeners = {};
-
   void addListener(void Function(TaskProgress p) listener) => _closed
       ? null
       : _listeners[listener] = _controller.stream.listen(listener.call);
@@ -233,7 +250,6 @@ class TaskProgressBroadcaster {
 
   late final _closureController = StreamController.broadcast(sync: true);
   final Map<void Function(), StreamSubscription> _closureListeners = {};
-
   void addClosureListener(void Function() listener) => _closed
       ? null
       : _closureListeners[listener] = _closureController.stream.listen(
@@ -257,6 +273,326 @@ class TaskProgressBroadcaster {
     }
     _controller.close();
   }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer()
+      ..write("TaskProgressBroadcaster(")
+      ..write("invocationId: $invocationId")
+      ..write(", progress: $progress")
+      ..write(")");
+    return buffer.toString();
+  }
+}
+
+final class _TaskStatusResultCapsule<I extends Object, O extends Object> {
+  TaskResult<I, O>? _output;
+  TaskResult<I, O>? get output => _output;
+  bool get isCompleted => _output != null;
+
+  void complete(TaskResult<I, O> output) {
+    if (isCompleted) throw StateError("Output has already been completed.");
+    _output = output;
+  }
+}
+
+extension TaskStatusFutureExtension<I extends Object, O extends Object>
+    on Future<TaskStatus<I, O>> {
+  Future<TaskResult<I, O>> get result async => (await this).future;
+  Future<TaskResultSuccess<I, O>?> get success async => (await result).success;
+  Future<TaskResultError<I, O>?> get error async => (await result).error;
+  Future<O> get output async => (await this).output;
+}
+
+final class TaskStatus<I extends Object, O extends Object> {
+  late final int invocationId;
+  late final Task<I, O> task;
+  late final TaskProgressBroadcaster progress;
+
+  final _TaskStatusResultCapsule<I, O>? _result;
+  TaskResult<I, O>? get result => _result?.output;
+
+  final _future = Completer<TaskResult<I, O>>();
+  Future<TaskResult<I, O>> get future => _future.future;
+
+  TaskResultSuccess<I, O>? get success => result?.success;
+  TaskResultError<I, O>? get error => result?.error;
+
+  Future<O> get output async {
+    final result = await future;
+    return switch (result) {
+      TaskResultSuccess<I, O>(:final output) => output,
+      TaskResultError<I, O>(:final exception, :final stackTrace) =>
+        Error.throwWithStackTrace(exception, stackTrace ?? StackTrace.current),
+      _ => throw StateError("Unreachable: unknown TaskResult subtype."),
+    };
+  }
+
+  /// Cancels the invocation of the task.
+  ///
+  /// ***NOTE:*** This does not actually cancel the invocation, but rather sends
+  /// a friendly signal to the task that it should stop its work and return as
+  /// soon as possible. The task is fully able to ignore this request though. To
+  /// fully stop execution, use [TaskInstance.close] or similar.
+  ///
+  /// The task should not throw an exception or return an error, but should
+  /// return a normal result if possible, or a default value if not.
+  ///
+  /// The returned value is indistinguishable from a normal result, so the
+  /// caller should not assume that the task has actually stopped its work. The
+  /// task may still be running in the background.
+  void cancel() => _cancelCurrentAttempt?.call();
+  void Function()? _cancelCurrentAttempt;
+
+  @override
+  String toString() {
+    final buffer = StringBuffer()
+      ..write("TaskStatus(")
+      ..write("invocationId: $invocationId")
+      ..write(", task: $task")
+      ..write(", progress: $progress")
+      ..write(", result: $result")
+      ..write(")");
+    return buffer.toString();
+  }
+
+  TaskStatus._() : _result = _TaskStatusResultCapsule<I, O>();
+  static Future<TaskStatus<I, O>> _create<I extends Object, O extends Object>(
+    Task<I, O> task,
+    I input, {
+    required TaskBundle bundle,
+    void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
+    void Function(int id)? invocationId,
+    RetryOptions? retryOptions,
+  }) async {
+    final idCompleter = Completer<int>();
+    final progressCompleter = Completer<TaskProgressBroadcaster>();
+    return TaskStatus<I, O>._()
+      .._invoke(
+        task,
+        input,
+        bundle: bundle,
+        progressBroadcaster: (progress) {
+          if (!progressCompleter.isCompleted) {
+            progressCompleter.complete(progress);
+          }
+          (progressBroadcaster ?? ProgressSnatcher.instance.auto).call(
+            progress,
+          );
+        },
+        invocationId: (id) {
+          if (!idCompleter.isCompleted) {
+            idCompleter.complete(id);
+          }
+          invocationId?.call(id);
+        },
+        retryOptions: retryOptions,
+      )
+      ..task = task
+      ..invocationId = await idCompleter.future
+      ..progress = await progressCompleter.future;
+  }
+
+  Future<void> _invoke(
+    Task<I, O> task,
+    I input, {
+    required TaskBundle bundle,
+    void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
+    void Function(int id)? invocationId,
+    RetryOptions? retryOptions,
+  }) async {
+    final tmpId = --bundle._tmpInvocationIdCounter;
+    bundle._runningInvocations[tmpId] = this;
+
+    var instance =
+        bundle._running.singleWhereOrNull(
+              (i) => i._task == task && !i._closed.isCompleted,
+            )
+            as TaskInstance<I, O>?;
+    if (instance == null) {
+      instance = await task.spawn();
+      bundle._running.add(instance);
+    }
+
+    int? id;
+    TaskResult<I, O> result;
+    final startTime = DateTime.now();
+    var retryCount = 0;
+
+    try {
+      int? existingInvocationId;
+
+      O resultData;
+      Future<O> compute() async {
+        Future<O> data;
+        (id, data) = instance!.invoke(
+          input,
+          progressBroadcaster: progressBroadcaster,
+          invocationId: (id) {
+            existingInvocationId ??= id;
+            invocationId?.call(id);
+          },
+          existingInvocationId: existingInvocationId,
+        );
+        _cancelCurrentAttempt = () => instance!._cancel(id!);
+
+        bundle._runningInvocations[id!] = this;
+        bundle._runningInvocations.remove(tmpId);
+
+        var future = data.catchError(Error.throwWithStackTrace);
+        if (task.timeout != null) {
+          future = future.timeout(task.timeout!);
+        }
+        return future;
+      }
+
+      if (retryOptions != null) {
+        resultData = await retryOptions.retry(
+          compute,
+          onRetry: (_) {
+            retryCount++;
+            bundle._runningInvocations
+              ..remove(id)
+              ..remove(tmpId);
+            bundle._update.add(task.id);
+          },
+        );
+      } else {
+        resultData = await compute();
+      }
+
+      result = TaskResultSuccess<I, O>._(
+        output: resultData,
+        executionTime: DateTime.now().difference(startTime),
+        startTime: startTime,
+        endTime: DateTime.now(),
+      );
+    } catch (e, s) {
+      result = TaskResultError<I, O>._(
+        exception: e,
+        stackTrace: s,
+        startTime: startTime,
+        throwTime: DateTime.now(),
+        retryCount: retryCount,
+        retryOptions: retryOptions,
+      );
+    } finally {
+      if (id != null) bundle._runningInvocations.remove(id);
+      bundle._runningInvocations.remove(tmpId);
+      bundle._update.add(task.id);
+    }
+
+    _result?.complete(result);
+    _future.complete(result);
+    bundle._update.add(task.id);
+  }
+}
+
+/// A class that represents the result of a task invocation.
+///
+/// The result can either be a success or an error. The result contains the
+/// invocation id, the task, the progress, and the start time of the invocation.
+///
+/// See [TaskResultSuccess] and [TaskResultError] for more information about the
+/// success and error results.
+///
+/// Use [success] and [error] for quick access to the success or error result.
+/// Both will return `null` if the result is not of the respective type.
+abstract final class TaskResult<I extends Object, O extends Object> {
+  final DateTime? startTime;
+
+  TaskResult._({required this.startTime});
+
+  TaskResultSuccess<I, O>? get success =>
+      this is TaskResultSuccess<I, O> ? this as TaskResultSuccess<I, O> : null;
+  TaskResultError<I, O>? get error =>
+      this is TaskResultError<I, O> ? this as TaskResultError<I, O> : null;
+
+  @override
+  @mustBeOverridden
+  String toString() {
+    final buffer = StringBuffer()..write("TaskResult(");
+    if (startTime != null) {
+      buffer.write("startTime: $startTime");
+    }
+    buffer.write(")");
+    return buffer.toString();
+  }
+}
+
+final class TaskResultSuccess<I extends Object, O extends Object>
+    extends TaskResult<I, O> {
+  final O output;
+  final DateTime? endTime;
+  final Duration? executionTime;
+
+  TaskResultSuccess._({
+    required this.output,
+    required this.executionTime,
+    required super.startTime,
+    required this.endTime,
+  }) : super._();
+
+  @override
+  String toString() {
+    final buffer = StringBuffer()
+      ..write("TaskResultSuccess(")
+      ..write("output: $output");
+    if (startTime != null) {
+      buffer.write(", startTime: $startTime");
+    }
+    if (endTime != null) {
+      buffer.write(", endTime: $endTime");
+    }
+    if (executionTime != null) {
+      buffer.write(", executionTime: $executionTime");
+    }
+    buffer.write(")");
+    return buffer.toString();
+  }
+}
+
+final class TaskResultError<I extends Object, O extends Object>
+    extends TaskResult<I, O> {
+  final Object exception;
+  final StackTrace? stackTrace;
+  final DateTime? throwTime;
+
+  final int? retryCount;
+  final RetryOptions? retryOptions;
+
+  TaskResultError._({
+    required this.exception,
+    required this.stackTrace,
+    required super.startTime,
+    required this.throwTime,
+    required this.retryCount,
+    required this.retryOptions,
+  }) : super._();
+
+  @override
+  String toString() {
+    final buffer = StringBuffer()
+      ..write("TaskResultError(")
+      ..write("exception: $exception");
+    if (stackTrace != null) {
+      buffer.write(", stackTrace: ...");
+    }
+    if (startTime != null) {
+      buffer.write(", startTime: $startTime");
+    }
+    if (throwTime != null) {
+      buffer.write(", throwTime: $throwTime");
+    }
+    if (retryCount != null) {
+      buffer.write(", retryCount: $retryCount");
+    }
+    if (retryOptions != null) {
+      buffer.write(", retryOptions: ${retryOptions!.toPrettyString()}");
+    }
+    buffer.write(")");
+    return buffer.toString();
+  }
 }
 
 class TaskMetadata {
@@ -266,6 +602,7 @@ class TaskMetadata {
   final String? author;
   final String? maintainer;
   final String? description;
+  final Uri? icon;
   final String? license;
 
   final Uri? repository;
@@ -281,6 +618,7 @@ class TaskMetadata {
     this.author,
     this.maintainer,
     this.description,
+    this.icon,
     this.license,
     this.repository,
     this.documentation,
@@ -297,6 +635,7 @@ class TaskMetadata {
       author: data.remove("author"),
       maintainer: data.remove("maintainer"),
       description: data.remove("description"),
+      icon: Uri.tryParse(data.remove("icon") ?? ""),
       license: data.remove("license"),
       repository: Uri.tryParse(data.remove("repository") ?? ""),
       documentation: Uri.tryParse(data.remove("documentation") ?? ""),
@@ -327,9 +666,11 @@ class TaskMetadata {
 ///
 /// ***NOTE:*** A task should not cause failures if it gets closed unexpectedly
 /// while it is running and should be able to run again after being closed. A
-/// corrupted state from the last should be recovered in the following run.
+/// corrupted state from the last should be recovered in the following run. See
+/// [allowRestoration] for more information.
 abstract class Task<I extends Object, O extends Object> {
   bool _closed = false;
+  final Map<int, bool> _invocationClosed = {};
 
   /// The unique identifier for the task.
   ///
@@ -364,6 +705,21 @@ abstract class Task<I extends Object, O extends Object> {
   /// allow a new invocation of the task or not.
   bool get allowSimultaneous => false;
 
+  /// Whether the task allows its state to be restored after a crash or restart.
+  ///
+  /// This is useful for tasks that do something in the background, like
+  /// downloading or labeling data, and can resume where they left off after a
+  /// crash or restart. If the task is used to just get a value from the invoke
+  /// functions, this should be set to `false`.
+  bool get allowRestoration => false;
+
+  /// The timeout for the task.
+  ///
+  /// This is the maximum duration that the task is allowed to run before it is
+  /// considered to have failed. If the task takes longer than this duration to
+  /// complete, it will be terminated and an error will be returned.
+  Duration? get timeout => null;
+
   /// Metadata about the task, such as version, author, etc.
   ///
   /// This can be used to provide additional information about the task that
@@ -375,6 +731,9 @@ abstract class Task<I extends Object, O extends Object> {
   /// - `author`: The author of the task.
   /// - `maintainer`: The maintainer of the task.
   /// - `description`: A brief description of the task.
+  /// - `icon`: URI that points to an icon. This has to be interpreted by the
+  ///   application as it sees fit. It might be a URL, a icon pack resource
+  ///   locator or similar.
   /// - `license`: The license under which the task is released.
   /// - `repository`: URL where the source code of the task can be found.
   /// - `documentation`: URL where documentation doe the task can be found.
@@ -395,22 +754,6 @@ abstract class Task<I extends Object, O extends Object> {
   /// [TaskMetadata] object. It can be used to access the metadata in a more
   /// structured way, with proper types and default values.
   TaskMetadata get metadataObject => TaskMetadata._fromMap(metadata);
-
-  @override
-  String toString() {
-    final buffer = StringBuffer()..write("Task(id: ${jsonEncode(id)}");
-    if (displayName != null) {
-      buffer.write(", displayName: ${jsonEncode(displayName)}");
-    }
-    if (allowSimultaneous) {
-      buffer.write(", allowMultipleInstances: $allowSimultaneous");
-    }
-    if (metadata.isNotEmpty) {
-      buffer.write(", metadata: ${jsonEncode(metadata)}");
-    }
-    buffer.write(")");
-    return buffer.toString();
-  }
 
   Task() {
     if (!RegExp(r"^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$").hasMatch(id)) {
@@ -444,14 +787,20 @@ abstract class Task<I extends Object, O extends Object> {
 
     Isolate isolate;
     try {
-      isolate = await Isolate.spawn(_startRemoteIsolate, initPort.sendPort);
+      isolate =
+          await Isolate.spawn(
+              _startRemoteIsolate,
+              initPort.sendPort,
+              errorsAreFatal: true,
+              onError: initPort.sendPort,
+            )
+            ..addOnExitListener(initPort.sendPort, response: "shutdown_ack");
     } on Object {
       initPort.close();
       rethrow;
     }
 
     final (ReceivePort responses, SendPort commands) = await connection.future;
-
     return TaskInstance<I, O>._(
       responses: responses,
       commands: commands,
@@ -470,6 +819,9 @@ abstract class Task<I extends Object, O extends Object> {
           _closed = true;
           sendPort.send("shutdown_ack");
           return;
+        } else if (message case ("cancel", final int id)) {
+          _invocationClosed[id] = true;
+          return;
         }
 
         final (int id, I input) = message as (int, I);
@@ -486,14 +838,17 @@ abstract class Task<I extends Object, O extends Object> {
                   ));
                   return true;
                 },
+                getIsClosed: () => _invocationClosed[id] == true || _closed,
               ),
             ),
-          ).catchError(Error.throwWithStackTrace);
+          );
           if (_closed) return;
+          _invocationClosed.remove(id);
           sendPort.send((id, output));
         } catch (e, s) {
           if (_closed) return;
-          sendPort.send((id, RemoteError(e.toString(), s.toString())));
+          _invocationClosed.remove(id);
+          sendPort.send((id, RemoteException(e.toString(), s.toString())));
         }
       });
 
@@ -505,6 +860,25 @@ abstract class Task<I extends Object, O extends Object> {
 
   /// Converts this task into a [TaskBundle] containing only this task.
   TaskBundle toBundle() => TaskBundle([this]);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer()..write("Task(id: ${jsonEncode(id)}");
+    if (displayName != null) {
+      buffer.write(", displayName: ${jsonEncode(displayName)}");
+    }
+    if (allowSimultaneous) {
+      buffer.write(", allowSimultaneous: $allowSimultaneous");
+    }
+    if (allowRestoration) {
+      buffer.write(", allowRestoration: $allowRestoration");
+    }
+    if (metadata.isNotEmpty) {
+      buffer.write(", metadata: ${jsonEncode(metadata)}");
+    }
+    buffer.write(")");
+    return buffer.toString();
+  }
 
   @override
   bool operator ==(Object other) {
@@ -519,6 +893,7 @@ abstract class Task<I extends Object, O extends Object> {
 
 final class TaskInstance<I extends Object, O extends Object> {
   final Completer<void> _closed = Completer<void>.sync();
+  bool _closingProcess = false;
   final Map<int, Completer<O>> _activeRequests = {};
   final Map<int, TaskProgressBroadcaster> _activeProgressBroadcasters = {};
 
@@ -554,36 +929,54 @@ final class TaskInstance<I extends Object, O extends Object> {
   /// this method will also throw a [StateError].
   ///
   /// If the [Task.invoke] method throws an error, this method will throw a
-  /// [RemoteError] with the error converted to a string and the stack trace
+  /// [RemoteException] with the error converted to a string and the stack trace
   /// from the isolate.
   (int, Future<O>) invoke(
     I input, {
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
+    void Function(int id)? invocationId,
+    int? existingInvocationId,
   }) {
     if (_closed.isCompleted) {
       throw StateError("Cannot send inputs to a closed TaskInstance.");
     }
 
-    final id = _idCounter++;
+    final id = existingInvocationId ?? _idCounter++;
     final completer = Completer<O>.sync();
-    final broadcaster = TaskProgressBroadcaster(invocationId: id);
+    final broadcaster = TaskProgressBroadcaster._(invocationId: id);
 
     _activeRequests[id] = completer;
     _activeProgressBroadcasters[id] = broadcaster;
     _commands.send((id, input));
 
-    runZonedGuarded(
-      () => (progressBroadcaster ?? ProgressSnatcher.instance.auto).call(
-        broadcaster,
-      ),
-      Error.throwWithStackTrace,
-    );
+    runZonedGuarded(() {
+      invocationId?.call(id);
+      (progressBroadcaster ?? ProgressSnatcher.instance.auto).call(broadcaster);
+    }, Error.throwWithStackTrace);
     return (id, completer.future.catchError(Error.throwWithStackTrace));
+  }
+
+  void _cancel(int id) {
+    if (_closed.isCompleted) return;
+    _commands.send(("cancel", id));
   }
 
   void _handleResponsesFromIsolate(dynamic message) {
     if (message == "shutdown_ack") {
+      if (!_closingProcess) {
+        _failAllActiveRequests(
+          StateError(
+            "TaskInstance was closed unexpectedly. The isolate was shut down before a response was received.",
+          ),
+          StackTrace.current,
+        );
+        return;
+      }
       _closed.complete();
+      return;
+    } else if (message case [final String e, final String s]) {
+      final error = RemoteException(e, s);
+      _failAllActiveRequests(error, error.stackTrace);
       return;
     } else if (message case (
       final int id,
@@ -599,11 +992,26 @@ final class TaskInstance<I extends Object, O extends Object> {
     final completer = _activeRequests.remove(id)!;
     _activeProgressBroadcasters.remove(id)?._close();
 
-    if (response case final RemoteError error) {
+    if (response case final RemoteException error) {
       completer.completeError(error, error.stackTrace);
     } else {
       completer.complete(response as O);
     }
+  }
+
+  void _failAllActiveRequests(Object error, StackTrace stackTrace) {
+    for (final broadcaster in _activeProgressBroadcasters.values) {
+      broadcaster._close();
+    }
+    _responses.close();
+    _isolate.kill(priority: Isolate.immediate);
+    if (!_closed.isCompleted) _closed.complete();
+
+    for (final completer in _activeRequests.values) {
+      completer.completeError(error, stackTrace);
+    }
+    _activeRequests.clear();
+    _activeProgressBroadcasters.clear();
   }
 
   /// Closes the task instance and terminates the isolate.
@@ -611,16 +1019,22 @@ final class TaskInstance<I extends Object, O extends Object> {
   /// If there are any active requests when this method is called, they will be
   /// completed with a [StateError] indicating that the task instance was closed
   /// before a response was received.
-  Future<void> close() async {
+  ///
+  /// Note that this method fill kill the whole isolate, meaning other instances
+  /// will become unusable as well.
+  Future<void> close({bool silent = false}) async {
     if (!_closed.isCompleted) {
+      _closingProcess = true;
       _commands.send("shutdown");
-      await _closed.future;
+      await _closed.future.timeout(Duration(seconds: 10), onTimeout: () {});
 
-      for (final completer in _activeRequests.values) {
-        completer.completeError(
-          StateError("TaskInstance closed before response was received."),
-          StackTrace.current,
-        );
+      if (!silent) {
+        for (final completer in _activeRequests.values) {
+          completer.completeError(
+            StateError("TaskInstance closed before response was received."),
+            StackTrace.current,
+          );
+        }
       }
       for (final broadcaster in _activeProgressBroadcasters.values) {
         broadcaster._close();
@@ -658,10 +1072,11 @@ final class TaskBundle {
       List.unmodifiable(_running.map((t) => t._task.id));
   final List<TaskInstance> _running = [];
 
-  Map<int, String> get runningInvocations => Map.unmodifiable(
-    _runningInvocations.map((key, value) => MapEntry(key, value.id)),
-  );
-  final Map<int, Task> _runningInvocations = {};
+  /// Currently running invocations.
+  Map<int, TaskStatus> get runningInvocations =>
+      Map.unmodifiable(_runningInvocations);
+  final Map<int, TaskStatus> _runningInvocations = {};
+  int _tmpInvocationIdCounter = 0;
 
   TaskBundle(Iterable<Task> tasks, {bool startCulling = true})
     : assert(
@@ -679,10 +1094,12 @@ final class TaskBundle {
   /// [ArgumentError].
   ///
   /// See [invoke] for more information about the parameters.
-  Future<O> invokeNamed<I extends Object, O extends Object>(
+  Future<TaskStatus<I, O>> invokeNamed<I extends Object, O extends Object>(
     String taskId,
     I input, {
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
+    void Function(int id)? invocationId,
+    RetryOptions? retryOptions,
   }) async {
     if (_closed) {
       throw StateError("Cannot invoke tasks on a closed TaskBundle.");
@@ -698,6 +1115,8 @@ final class TaskBundle {
       task.runtimeType,
       input,
       progressBroadcaster: progressBroadcaster,
+      invocationId: invocationId,
+      retryOptions: retryOptions,
     );
   }
 
@@ -723,7 +1142,7 @@ final class TaskBundle {
   /// this method will also throw a [StateError].
   ///
   /// If the [Task.invoke] method throws an error, this method will throw a
-  /// [RemoteError] with the error converted to a string and the stack trace
+  /// [RemoteException] with the error converted to a string and the stack trace
   /// from the isolate.
   ///
   /// {@endtemplate}
@@ -735,10 +1154,12 @@ final class TaskBundle {
   /// ```dart
   /// final result = TaskBundle([MyTask()]).invoke(MyTask, "input");
   /// ```
-  Future<O> invoke<I extends Object, O extends Object>(
+  Future<TaskStatus<I, O>> invoke<I extends Object, O extends Object>(
     Type taskType,
     I input, {
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
+    void Function(int id)? invocationId,
+    RetryOptions? retryOptions,
   }) async {
     if (_closed) {
       throw StateError("Cannot invoke tasks on a closed TaskBundle.");
@@ -752,45 +1173,21 @@ final class TaskBundle {
               ),
             )
             as Task<I, O>;
-    if (!task.allowSimultaneous && _runningInvocations.values.contains(task)) {
+    if (!task.allowSimultaneous &&
+        _runningInvocations.values.any((i) => i.task == task)) {
       throw StateError(
         "Task '${task.id}' does not allow multiple instances and is already running.",
       );
     }
 
-    final tmpId = -task.id.hashCode.abs() - 1;
-    _runningInvocations[tmpId] = task;
-
-    var instance =
-        _running.singleWhereOrNull(
-              (i) => i._task == task && !i._closed.isCompleted,
-            )
-            as TaskInstance<I, O>?;
-    // instance ??= await task.spawn();
-    if (instance == null) {
-      instance = await task.spawn();
-      _running.add(instance);
-    }
-
-    int? id;
-    O result;
-    try {
-      Future<O> data;
-      (id, data) = instance.invoke(
-        input,
-        progressBroadcaster: progressBroadcaster,
-      );
-
-      _runningInvocations[id] = task;
-      _runningInvocations.remove(tmpId);
-      result = await data;
-    } finally {
-      if (id != null) _runningInvocations.remove(id);
-      _runningInvocations.remove(tmpId);
-      _update.add(task.id);
-    }
-
-    return result;
+    return TaskStatus._create<I, O>(
+      task,
+      input,
+      bundle: this,
+      progressBroadcaster: progressBroadcaster,
+      invocationId: invocationId,
+      retryOptions: retryOptions,
+    );
   }
 
   final _update = StreamController<String>.broadcast(sync: true);
@@ -803,7 +1200,7 @@ final class TaskBundle {
 
   /// Closes all running task instances in the bundle and terminates their
   /// isolates.
-  Future<void> close() async {
+  Future<void> close({bool silent = false}) async {
     if (_closed) return;
     _closed = true;
 
@@ -812,7 +1209,7 @@ final class TaskBundle {
       await subscription.cancel();
     }
     for (final instance in List.of(_running)) {
-      await instance.close();
+      await instance.close(silent: silent);
     }
     _update.close();
   }

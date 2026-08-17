@@ -2,7 +2,7 @@ name: scheduler
 description: A modern, class-based task scheduling system, primarily for a Dart server environment.
 publish_to: none
 
-version: 1.0.0
+version: 0.1.0
 repository: https://github.com/JHubi1/scheduler
 
 environment:
@@ -11,6 +11,7 @@ environment:
 dependencies:
   meta: ^1.19.0
   collection: ^1.19.1
+  retry: ^3.1.2
 
 dev_dependencies:
   lints: ^6.0.0
