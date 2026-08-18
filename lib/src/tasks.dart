@@ -309,22 +309,43 @@ final class TaskStatus<I extends Object, O extends Object> {
   late final Task<I, O> task;
   late final TaskProgressBroadcaster progress;
 
-  final _TaskStatusResultCapsule<I, O>? _result;
+  /// The result of the task invocation.
+  ///
+  /// This will be `null` if the task has not yet completed. Use [future] to
+  /// wait for the task to complete and get the result.
+  ///
+  /// The shortcuts [success], [error], and [output] can be used to get the
+  /// result in a more convenient way.
   TaskResult<I, O>? get result => _result?.output;
+  final _TaskStatusResultCapsule<I, O>? _result;
 
-  final _future = Completer<TaskResult<I, O>>();
+  /// A future that completes when the task invocation is complete.
   Future<TaskResult<I, O>> get future => _future.future;
+  final _future = Completer<TaskResult<I, O>>();
 
+  /// A shortcut to get the success result of the task invocation.
+  ///
+  /// This will be `null` if the task has not yet completed or if the task did
+  /// not complete successfully.
   TaskResultSuccess<I, O>? get success => result?.success;
+
+  /// A shortcut to get the error result of the task invocation.
+  ///
+  /// This will be `null` if the task has not yet completed or if the task did
+  /// not complete with an error.
   TaskResultError<I, O>? get error => result?.error;
 
+  /// A shortcut to get the output of the task invocation.
+  ///
+  /// ***NOTE:*** This will throw the otherwise safely contained exception from
+  /// [TaskResultError] if the task did not complete successfully. Use [error]
+  /// to safely access the error result without throwing.
   Future<O> get output async {
     final result = await future;
     return switch (result) {
       TaskResultSuccess<I, O>(:final output) => output,
       TaskResultError<I, O>(:final exception, :final stackTrace) =>
         Error.throwWithStackTrace(exception, stackTrace ?? StackTrace.current),
-      _ => throw StateError("Unreachable: unknown TaskResult subtype."),
     };
   }
 
@@ -415,29 +436,29 @@ final class TaskStatus<I extends Object, O extends Object> {
     }
 
     int? id;
-    TaskResult<I, O> result;
+    int? previousId;
+    TaskResult<I, O>? result;
     final startTime = DateTime.now();
     var retryCount = 0;
 
     try {
-      int? existingInvocationId;
-
       O resultData;
       Future<O> compute() async {
+        if (bundle._closed) {
+          throw StateError("Cannot invoke tasks on a closed TaskBundle.");
+        }
+
         Future<O> data;
         (id, data) = instance!.invoke(
           input,
           progressBroadcaster: progressBroadcaster,
-          invocationId: (id) {
-            existingInvocationId ??= id;
-            invocationId?.call(id);
-          },
-          existingInvocationId: existingInvocationId,
+          invocationId: invocationId,
         );
         _cancelCurrentAttempt = () => instance!._cancel(id!);
 
         bundle._runningInvocations[id!] = this;
         bundle._runningInvocations.remove(tmpId);
+        bundle._runningInvocations.remove(previousId);
 
         var future = data.catchError(Error.throwWithStackTrace);
         if (task.timeout != null) {
@@ -451,9 +472,7 @@ final class TaskStatus<I extends Object, O extends Object> {
           compute,
           onRetry: (_) {
             retryCount++;
-            bundle._runningInvocations
-              ..remove(id)
-              ..remove(tmpId);
+            previousId = id ?? tmpId;
             bundle._update.add(task.id);
           },
         );
@@ -477,14 +496,13 @@ final class TaskStatus<I extends Object, O extends Object> {
         retryOptions: retryOptions,
       );
     } finally {
+      _result?.complete(result!);
+      _future.complete(result);
+
       if (id != null) bundle._runningInvocations.remove(id);
       bundle._runningInvocations.remove(tmpId);
-      bundle._update.add(task.id);
+      if (!bundle._closed) bundle._update.add(task.id);
     }
-
-    _result?.complete(result);
-    _future.complete(result);
-    bundle._update.add(task.id);
   }
 }
 
@@ -498,7 +516,7 @@ final class TaskStatus<I extends Object, O extends Object> {
 ///
 /// Use [success] and [error] for quick access to the success or error result.
 /// Both will return `null` if the result is not of the respective type.
-abstract final class TaskResult<I extends Object, O extends Object> {
+sealed class TaskResult<I extends Object, O extends Object> {
   final DateTime? startTime;
 
   TaskResult._({required this.startTime});
@@ -935,13 +953,12 @@ final class TaskInstance<I extends Object, O extends Object> {
     I input, {
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
     void Function(int id)? invocationId,
-    int? existingInvocationId,
   }) {
     if (_closed.isCompleted) {
       throw StateError("Cannot send inputs to a closed TaskInstance.");
     }
 
-    final id = existingInvocationId ?? _idCounter++;
+    final id = _idCounter++;
     final completer = Completer<O>.sync();
     final broadcaster = TaskProgressBroadcaster._(invocationId: id);
 

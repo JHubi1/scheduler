@@ -28,7 +28,8 @@ class _SchedulerPackage<I extends Object, O extends Object> {
     required this.priority,
     required this.queueExpiration,
     required this.progressBroadcaster,
-  }) : _addedToQueue = DateTime.now();
+    DateTime? addedToQueue,
+  }) : _addedToQueue = addedToQueue ?? DateTime.now();
 
   Map<String, Object?> toJson({bool wasRunning = false}) {
     return {
@@ -37,6 +38,7 @@ class _SchedulerPackage<I extends Object, O extends Object> {
       "priority": priority,
       "queueExpiration": queueExpiration?.inMilliseconds,
       "wasRunning": wasRunning,
+      "_addedToQueue": _addedToQueue.toIso8601String(),
     };
   }
 
@@ -67,6 +69,42 @@ class SchedulerConfig {
     this.cullingIdle = const Duration(minutes: 1),
     this.retryOptions = const RetryOptions(maxAttempts: 3),
   });
+
+  void _validate() {
+    assert(
+      simultaneousInvocations > 0,
+      "simultaneousInvocations must be greater than 0",
+    );
+    assert(
+      cullingInterval > Duration.zero,
+      "cullingInterval must be greater than 0",
+    );
+    assert(
+      cullingIdle > Duration.zero && cullingIdle >= cullingInterval,
+      "cullingIdle must be greater than 0",
+    );
+
+    if (!(simultaneousInvocations > 0)) {
+      throw ArgumentError.value(
+        simultaneousInvocations,
+        "simultaneousInvocations",
+        "simultaneousInvocations must be greater than 0",
+      );
+    } else if (!(cullingInterval > Duration.zero)) {
+      throw ArgumentError.value(
+        cullingInterval,
+        "cullingInterval",
+        "cullingInterval must be greater than 0",
+      );
+    } else if (!(cullingIdle > Duration.zero &&
+        cullingIdle >= cullingInterval)) {
+      throw ArgumentError.value(
+        cullingIdle,
+        "cullingIdle",
+        "cullingIdle must be greater than 0 and greater than or equal to cullingInterval",
+      );
+    }
+  }
 
   SchedulerConfig copyWith({
     int? simultaneousInvocations,
@@ -187,6 +225,7 @@ class Scheduler {
 
   Scheduler(Iterable<Task> tasks, {this._config = const SchedulerConfig()})
     : _taskBundle = TaskBundle(tasks, startCulling: false) {
+    _config._validate();
     _queue = StablePriorityQueue(
       postponeExecution: (package) =>
           !package.task.allowSimultaneous &&
@@ -215,18 +254,49 @@ class Scheduler {
 
   /// Closes all running task instances in the scheduler and terminates their
   /// isolates.
+  ///
+  /// The [silent] flag can be set to true to prevent the scheduler from
+  /// throwing an exception to the running invocations' futures.
+  ///
+  /// The [graceful] flag can be set to false to immediately terminate all
+  /// running invocations without waiting for them to complete. If set to true,
+  /// the scheduler will wait for all running invocations to complete before
+  /// closing. The [gracefulTimeout] can be set to limit the time the scheduler
+  /// will wait for running invocations to complete before closing.
+  ///
+  /// The [saveRestorableState] callback can be provided to save the current
+  /// state of the scheduler before closing. This function is called after all
+  /// running invocations have completed with the [graceful] flag set to true.
   Future<void> close({
     bool silent = false,
     bool graceful = true,
     Duration? gracefulTimeout = const Duration(seconds: 30),
+    FutureOr<void> Function()? saveRestorableState,
   }) async {
     if (graceful && _completeRunningInvocationsLastLength > 0) {
-      var future = _completeRunningInvocations.stream.first;
+      runningInvocations.forEach((_, status) => status.cancel());
+
+      var future = completeRunningInvocations;
       if (gracefulTimeout != null) {
         future = future.timeout(gracefulTimeout, onTimeout: () {});
       }
       await future.catchError((_) {});
     }
+    if (!silent) {
+      for (var package in List.from(_runningPackages.values)) {
+        if (!package.completer.isCompleted) {
+          package.completer.completeError(
+            StateError(
+              "Scheduler is closing gracefully, cancelling invocation of '${package.task.id}' with input '${package.input}'.",
+            ),
+            StackTrace.current,
+          );
+        }
+        _runningPackages.removeWhere((_, p) => p == package);
+      }
+    }
+
+    await Future.value(saveRestorableState?.call());
     _taskBundle.removeListener(_onUpdate);
     await _taskBundle.close(silent: silent);
   }
@@ -330,6 +400,9 @@ class Scheduler {
                     )
                   : null,
               progressBroadcaster: null,
+              addedToQueue: invocation["_addedToQueue"] != null
+                  ? DateTime.parse(invocation["_addedToQueue"]! as String)
+                  : null,
             ),
           );
         } else {
@@ -432,6 +505,7 @@ class Scheduler {
     bool processQueue = true,
     bool processQueueLockAssert = true,
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
+    void Function(Object error, StackTrace stackTrace)? catchError,
   }) async {
     final task =
         tasks.singleWhere(

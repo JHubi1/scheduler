@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:scheduler/scheduler.dart';
 import 'package:scheduler/tasks.dart';
 
-final mode = "threeTimes";
+final mode = "json";
 
 void main() async {
   final tasks = <Task>[JsonDecoder(), DelayedEchoTask(), ThreeTimesTheCharm()];
@@ -32,11 +32,22 @@ void main() async {
     final invocation = await scheduler.invoke(ThreeTimesTheCharm, "Hello");
     print("+ ${(await invocation.future).success}");
     print("- ${(await invocation.future).error}");
+  } else if (mode == "error") {
+    final newScheduler = Scheduler(
+      tasks,
+      config: scheduler.config.copyWith(
+        retryOptions: RetryOptions(maxAttempts: 1),
+      ),
+    );
+    print(
+      await (await newScheduler.invoke(ThreeTimesTheCharm, "Hello")).future,
+    );
+    await newScheduler.close();
   } else if (mode == "invocation") {
     final invocation = await scheduler.invoke(DelayedEchoTask, "Hello");
     await Future.delayed(const Duration(seconds: 1)).then((_) {
-      // external getter
       print(
+        // external getter
         "Invocation: ${scheduler.runningInvocations[invocation.invocationId]}",
       );
       exit(1);
@@ -64,7 +75,7 @@ void main() async {
       (await Future.wait(
         (await Future.wait([
           scheduler.invoke(JsonDecoder, '"yes"', processQueue: false),
-          // scheduler.invoke(JsonDecoder, '"no"', priority: 10),
+          scheduler.invoke(JsonDecoder, '"no"', priority: 10),
         ])).map((e) => e.future),
       )).map((e) => e.success?.output).toList(),
     );
