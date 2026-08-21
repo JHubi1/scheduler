@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:scheduler/scheduler.dart';
+import 'package:scheduler/tasks.dart' show TaskProgressBroadcaster;
 import 'package:test/test.dart';
 
 import 'helpers.dart';
@@ -655,6 +656,35 @@ void main() {
         },
       );
 
+      test("fromRestorableState restores an invocation's queueExpiration and "
+          "_addedToQueue values", () async {
+        final tasks = [RestorableTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": [
+            {
+              "task": "restorableTask",
+              "input": "restored",
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": 30000,
+              "wasRunning": false,
+              "_addedToQueue": now.toIso8601String(),
+            },
+          ],
+          "waitList": <Object?>[],
+        };
+
+        final scheduler = Scheduler.fromRestorableState(tasks, state);
+        addTearDown(() => scheduler.close(silent: true));
+
+        expect(scheduler.runningInvocations.values.map((s) => s.task.id), [
+          "restorableTask",
+        ]);
+      });
+
       test(
         "fromRestorableState throws ArgumentError for an unknown task id",
         () {
@@ -691,6 +721,96 @@ void main() {
                 "_addedToQueue": null,
               },
             ],
+            "waitList": <Object?>[],
+          };
+
+          expect(
+            () => Scheduler.fromRestorableState(tasks, state),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test("fromRestorableState throws ArgumentError when an invocation's "
+          "allowRestoration flag is false, even for a restorable task", () {
+        final tasks = [RestorableTask()];
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": [
+            {
+              "task": "restorableTask",
+              "input": "x",
+              "priority": 0,
+              "allowRestoration": false,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+            },
+          ],
+          "waitList": <Object?>[],
+        };
+
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
+      });
+
+      test("fromRestorableState throws ArgumentError for an invocation "
+          "referencing a task id absent from taskIds", () {
+        final tasks = [RestorableTask()];
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": [
+            {
+              "task": "someOtherTask",
+              "input": "x",
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+            },
+          ],
+          "waitList": <Object?>[],
+        };
+
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        "fromRestorableState throws ArgumentError for a malformed invocation entry",
+        () {
+          final tasks = [RestorableTask()];
+          final state = {
+            "config": const SchedulerConfig().toJson(),
+            "taskIds": ["restorableTask"],
+            "invocations": [
+              {"task": "restorableTask"},
+            ],
+            "waitList": <Object?>[],
+          };
+
+          expect(
+            () => Scheduler.fromRestorableState(tasks, state),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test(
+        "fromRestorableState throws ArgumentError for an invalid config",
+        () {
+          final tasks = [RestorableTask()];
+          final state = {
+            "config": {"simultaneousInvocations": 0},
+            "taskIds": ["restorableTask"],
+            "invocations": <Object?>[],
             "waitList": <Object?>[],
           };
 
@@ -770,7 +890,9 @@ void main() {
                   .add(const Duration(milliseconds: 200))
                   .toIso8601String(),
               "cron": null,
+              "cronId": null,
               "cronReoccurrencesRemaining": null,
+              "cronIsUtc": null,
               "_addedToWaitList": now.toIso8601String(),
             },
           ],
@@ -803,7 +925,9 @@ void main() {
               "delay": 60000,
               "dateTime": now.add(const Duration(minutes: 1)).toIso8601String(),
               "cron": "* * * * * *",
+              "cronId": "restoredCron",
               "cronReoccurrencesRemaining": 3,
+              "cronIsUtc": false,
               "_addedToWaitList": now.toIso8601String(),
             },
           ],
@@ -815,7 +939,149 @@ void main() {
         expect(scheduler.cronTasks, hasLength(1));
         final task = scheduler.cronTasks.single;
         expect(task.cron, Cron.parse("* * * * * *"));
-        expect(task.cronReoccurrencesRemaining, 3);
+        expect(task.reoccurrencesRemaining, 3);
+      });
+
+      test("blocks the cronId of a restored cron entry from being reused", () {
+        final tasks = [RestorableVoidTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableVoidTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "restorableVoidTask",
+              "input": 1,
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 60000,
+              "dateTime": now.add(const Duration(minutes: 1)).toIso8601String(),
+              "cron": "* * * * * *",
+              "cronId": "restoredCron",
+              "cronReoccurrencesRemaining": null,
+              "cronIsUtc": false,
+              "_addedToWaitList": now.toIso8601String(),
+            },
+          ],
+        };
+
+        final scheduler = Scheduler.fromRestorableState(tasks, state);
+        addTearDown(() => scheduler.close(silent: true));
+
+        expect(
+          () => scheduler.cron<int>(
+            RestorableVoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "restoredCron",
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        "throws ArgumentError when the wait list contains a duplicate cronId",
+        () {
+          final tasks = [RestorableVoidTask()];
+          final now = DateTime.now();
+          final entry = {
+            "task": "restorableVoidTask",
+            "input": 1,
+            "priority": 0,
+            "allowRestoration": true,
+            "queueExpiration": null,
+            "wasRunning": false,
+            "_addedToQueue": null,
+            "delay": 60000,
+            "dateTime": now.add(const Duration(minutes: 1)).toIso8601String(),
+            "cron": "* * * * * *",
+            "cronId": "duplicateCron",
+            "cronReoccurrencesRemaining": null,
+            "cronIsUtc": false,
+            "_addedToWaitList": now.toIso8601String(),
+          };
+          final state = {
+            "config": const SchedulerConfig().toJson(),
+            "taskIds": ["restorableVoidTask"],
+            "invocations": <Object?>[],
+            "waitList": [entry, entry],
+          };
+
+          expect(
+            () => Scheduler.fromRestorableState(tasks, state),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test("throws ArgumentError when 'cron' is set but 'cronId' is null", () {
+        final tasks = [RestorableVoidTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableVoidTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "restorableVoidTask",
+              "input": 1,
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 60000,
+              "dateTime": now.add(const Duration(minutes: 1)).toIso8601String(),
+              "cron": "* * * * * *",
+              "cronId": null,
+              "cronReoccurrencesRemaining": null,
+              "cronIsUtc": false,
+              "_addedToWaitList": now.toIso8601String(),
+            },
+          ],
+        };
+
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
+      });
+
+      test("throws ArgumentError when 'cronId' is set but 'cron' is null", () {
+        final tasks = [RestorableVoidTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableVoidTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "restorableVoidTask",
+              "input": 1,
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 60000,
+              "dateTime": now.add(const Duration(minutes: 1)).toIso8601String(),
+              "cron": null,
+              "cronId": "orphanCronId",
+              "cronReoccurrencesRemaining": null,
+              "cronIsUtc": null,
+              "_addedToWaitList": now.toIso8601String(),
+            },
+          ],
+        };
+
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
       });
 
       test("skips a wait list entry whose scheduled time already passed", () {
@@ -839,7 +1105,9 @@ void main() {
                   .subtract(const Duration(seconds: 5))
                   .toIso8601String(),
               "cron": null,
+              "cronId": null,
               "cronReoccurrencesRemaining": null,
+              "cronIsUtc": null,
               "_addedToWaitList": now
                   .subtract(const Duration(seconds: 6))
                   .toIso8601String(),
@@ -852,6 +1120,49 @@ void main() {
 
         expect(scheduler.queueWaitList, isEmpty);
       });
+
+      test(
+        "recomputes the next run for an overdue cron wait list entry instead "
+        "of skipping it",
+        () {
+          final tasks = [RestorableVoidTask()];
+          final now = DateTime.now();
+          final state = {
+            "config": const SchedulerConfig().toJson(),
+            "taskIds": ["restorableVoidTask"],
+            "invocations": <Object?>[],
+            "waitList": [
+              {
+                "task": "restorableVoidTask",
+                "input": 1,
+                "priority": 0,
+                "allowRestoration": true,
+                "queueExpiration": null,
+                "wasRunning": false,
+                "_addedToQueue": null,
+                "delay": 1000,
+                // Overdue: the scheduled dateTime is in the past.
+                "dateTime": now
+                    .subtract(const Duration(minutes: 5))
+                    .toIso8601String(),
+                "cron": "0 0 0 1 1 *", // once a year, so never overdue again
+                "cronId": "overdueCron",
+                "cronReoccurrencesRemaining": null,
+                "cronIsUtc": false,
+                "_addedToWaitList": now
+                    .subtract(const Duration(minutes: 6))
+                    .toIso8601String(),
+              },
+            ],
+          };
+
+          final scheduler = Scheduler.fromRestorableState(tasks, state);
+          addTearDown(() => scheduler.close(silent: true));
+
+          expect(scheduler.queueWaitList, hasLength(1));
+          expect(scheduler.queueWaitList.single.delay.isNegative, isFalse);
+        },
+      );
 
       test("throws ArgumentError for an unknown task id in the wait list", () {
         final tasks = [RestorableTask()];
@@ -872,7 +1183,9 @@ void main() {
               "delay": 1000,
               "dateTime": now.add(const Duration(seconds: 5)).toIso8601String(),
               "cron": null,
+              "cronId": null,
               "cronReoccurrencesRemaining": null,
+              "cronIsUtc": null,
               "_addedToWaitList": now.toIso8601String(),
             },
           ],
@@ -907,7 +1220,9 @@ void main() {
                     .add(const Duration(seconds: 5))
                     .toIso8601String(),
                 "cron": null,
+                "cronId": null,
                 "cronReoccurrencesRemaining": null,
+                "cronIsUtc": null,
                 "_addedToWaitList": now.toIso8601String(),
               },
             ],
@@ -1037,7 +1352,116 @@ void main() {
         final task = scheduler.cronTasks.single;
         expect(task.cronId, "myCron");
         expect(task.cron, Cron.parse("* * * * * *"));
-        expect(task.cronReoccurrencesRemaining, 2);
+        expect(task.reoccurrencesRemaining, 2);
+      });
+
+      group("timezone handling", () {
+        late Scheduler restorableScheduler;
+        setUp(() => restorableScheduler = Scheduler([RestorableVoidTask()]));
+        tearDown(() => restorableScheduler.close(silent: true));
+
+        // Reschedules must keep matching the cron fields against the same
+        // timezone the chain started in (see SchedulerDelayedPackage's
+        // cronIsUtc field/_startTimer) instead of always switching to UTC
+        // after the first run, since DateTime.timestamp() (used to compute
+        // "now" for every run after the first) is always UTC.
+        test(
+          "records cronIsUtc: false in restorableState for a local startTime",
+          () {
+            restorableScheduler.cron<int>(
+              RestorableVoidTask,
+              1,
+              Cron.parse("* * * * * *"),
+              cronId: "localStartTime",
+              allowRestoration: true,
+              startTime: DateTime.now().add(const Duration(minutes: 1)),
+            );
+
+            final entry =
+                (restorableScheduler.restorableState()["waitList"]! as List)
+                        .single
+                    as Map;
+            expect(entry["cronIsUtc"], isFalse);
+          },
+        );
+
+        test(
+          "records cronIsUtc: true in restorableState for a UTC startTime",
+          () {
+            restorableScheduler.cron<int>(
+              RestorableVoidTask,
+              1,
+              Cron.parse("* * * * * *"),
+              cronId: "utcStartTime",
+              allowRestoration: true,
+              startTime: DateTime.now().toUtc().add(const Duration(minutes: 1)),
+            );
+
+            final entry =
+                (restorableScheduler.restorableState()["waitList"]! as List)
+                        .single
+                    as Map;
+            expect(entry["cronIsUtc"], isTrue);
+          },
+        );
+
+        test("records cronIsUtc: true by default, since DateTime.timestamp() "
+            "(the default startTime) is always UTC", () {
+          restorableScheduler.cron<int>(
+            RestorableVoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "defaultStartTime",
+            allowRestoration: true,
+          );
+
+          final entry =
+              (restorableScheduler.restorableState()["waitList"]! as List)
+                      .single
+                  as Map;
+          expect(entry["cronIsUtc"], isTrue);
+        });
+
+        test(
+          "fromRestorableState preserves cronIsUtc: false through a restore",
+          () {
+            final now = DateTime.now();
+            final state = {
+              "config": const SchedulerConfig().toJson(),
+              "taskIds": ["restorableVoidTask"],
+              "invocations": <Object?>[],
+              "waitList": [
+                {
+                  "task": "restorableVoidTask",
+                  "input": 1,
+                  "priority": 0,
+                  "allowRestoration": true,
+                  "queueExpiration": null,
+                  "wasRunning": false,
+                  "_addedToQueue": null,
+                  "delay": 60000,
+                  "dateTime": now
+                      .add(const Duration(minutes: 1))
+                      .toIso8601String(),
+                  "cron": "* * * * * *",
+                  "cronId": "restoredLocalCron",
+                  "cronReoccurrencesRemaining": null,
+                  "cronIsUtc": false,
+                  "_addedToWaitList": now.toIso8601String(),
+                },
+              ],
+            };
+
+            final restored = Scheduler.fromRestorableState([
+              RestorableVoidTask(),
+            ], state);
+            addTearDown(() => restored.close(silent: true));
+
+            final entry =
+                (restored.restorableState()["waitList"]! as List).single as Map;
+            expect(entry["cronIsUtc"], isFalse);
+          },
+        );
       });
 
       test(
@@ -1047,9 +1471,10 @@ void main() {
             VoidTask,
             1,
             Cron.parse("* * * * * *"),
+            cronId: "recursTheConfiguredNumberOfTimesThenStops",
             cronReoccurrences: 2,
           );
-          expect(scheduler.cronTasks.single.cronReoccurrencesRemaining, 2);
+          expect(scheduler.cronTasks.single.reoccurrencesRemaining, 2);
 
           await _waitUntil(() => scheduler.cronTasks.isEmpty);
           expect(scheduler.cronTasks, isEmpty);
@@ -1058,8 +1483,13 @@ void main() {
       );
 
       test("recurs indefinitely when cronReoccurrences is null", () {
-        scheduler.cron<int>(VoidTask, 1, Cron.parse("* * * * * *"));
-        expect(scheduler.cronTasks.single.cronReoccurrencesRemaining, isNull);
+        scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "recursIndefinitelyWhenCronReoccurrencesIsNull",
+        );
+        expect(scheduler.cronTasks.single.reoccurrencesRemaining, isNull);
       });
 
       test("throws ArgumentError for an unknown task type", () {
@@ -1068,6 +1498,7 @@ void main() {
             DelayedTask,
             Duration.zero,
             Cron.parse("* * * * * *"),
+            cronId: "throwsArgumentErrorForAnUnknownTaskType",
           ),
           throwsArgumentError,
         );
@@ -1082,6 +1513,7 @@ void main() {
             EchoTask,
             1,
             Cron.parse("* * * * * *"),
+            cronId: "throwsAFriendlyStateErrorForATaskTypeGenericMismatch",
           ),
           throwsA(isA<StateError>()),
         );
@@ -1094,6 +1526,7 @@ void main() {
             1,
             Cron.parse("* * * * * *"),
             startTime: DateTime.now().subtract(const Duration(seconds: 1)),
+            cronId: "throwsArgumentErrorWhenStartTimeIsNotInTheFuture",
           ),
           throwsArgumentError,
         );
@@ -1105,7 +1538,7 @@ void main() {
             VoidTask,
             1,
             Cron.parse("* * * * * *"),
-            cronId: "Not Camel",
+            cronId: "Throws ArgumentError when cronId is not camelCase",
           ),
           throwsArgumentError,
         );
@@ -1117,6 +1550,7 @@ void main() {
             VoidTask,
             1,
             Cron.parse("* * * * * *"),
+            cronId: "throwsArgumentErrorWhenCronReoccurrencesIsNotPositive",
             cronReoccurrences: 0,
           ),
           throwsArgumentError,
@@ -1126,7 +1560,13 @@ void main() {
       test(
         "stops recurring once the scheduler is closed while the cron task is waiting",
         () async {
-          scheduler.cron<int>(VoidTask, 1, Cron.parse("* * * * * *"));
+          scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId:
+                "stopsRecurringOnceTheSchedulerIsClosedWhileTheCronTaskIsWaiting",
+          );
           expect(scheduler.cronTasks, hasLength(1));
 
           await scheduler.close(silent: true);
@@ -1137,10 +1577,249 @@ void main() {
       test(
         "allowRestoration defaults to false and is excluded from restorableState",
         () {
-          scheduler.cron<int>(VoidTask, 1, Cron.parse("* * * * * *"));
+          scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId:
+                "allowRestorationDefaultsToFalseAndIsExcludedFromRestorableState",
+          );
 
           final state = scheduler.restorableState();
           expect(state["waitList"], isEmpty);
+        },
+      );
+    });
+
+    group("CronTaskStatus", () {
+      late Scheduler scheduler;
+      setUp(() => scheduler = Scheduler([VoidTask()]));
+      tearDown(() => scheduler.close(silent: true));
+
+      test("cronId exposes the id passed to cron()", () {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "cronIdExposesTheIdPassedToCron",
+        );
+
+        expect(status.cronId, "cronIdExposesTheIdPassedToCron");
+      });
+
+      test("isRunning is true after scheduling and false after cancel()", () {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "isRunningReflectsScheduledAndCancelledState",
+        );
+
+        expect(status.isRunning, isTrue);
+        status.cancel();
+        expect(status.isRunning, isFalse);
+      });
+
+      test(
+        "isRunning becomes false once all reoccurrences complete, without calling cancel()",
+        () async {
+          final status = scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "isRunningBecomesFalseOnceReoccurrencesComplete",
+            cronReoccurrences: 1,
+          );
+
+          expect(status.isRunning, isTrue);
+          await _waitUntil(() => !status.isRunning);
+          expect(status.isRunning, isFalse);
+        },
+        timeout: const Timeout(Duration(seconds: 10)),
+      );
+
+      test(
+        "reoccurrencesRemaining is null when cronReoccurrences is unset",
+        () {
+          final status = scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "reoccurrencesRemainingIsNullWhenUnbounded",
+          );
+
+          expect(status.reoccurrencesRemaining, isNull);
+        },
+      );
+
+      test(
+        "reoccurrencesRemaining decreases as the cron task recurs",
+        () async {
+          final status = scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "reoccurrencesRemainingDecreasesAsTheCronTaskRecurs",
+            cronReoccurrences: 3,
+          );
+
+          expect(status.reoccurrencesRemaining, 3);
+          await _waitUntil(() => status.reoccurrencesRemaining != 3);
+          expect(status.reoccurrencesRemaining, lessThan(3));
+
+          await _waitUntil(() => !status.isRunning);
+          expect(status.reoccurrencesRemaining, isNull);
+        },
+        timeout: const Timeout(Duration(seconds: 10)),
+      );
+
+      test(
+        "nextRun returns an upcoming DateTime while scheduled, and null after cancel()",
+        () {
+          final before = DateTime.now();
+          final status = scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "nextRunReturnsAnUpcomingDateTimeAndNullAfterCancel",
+          );
+
+          final nextRun = status.nextRun;
+          expect(nextRun, isNotNull);
+          expect(
+            nextRun!.isBefore(before.add(const Duration(seconds: 2))),
+            isTrue,
+          );
+
+          status.cancel();
+          expect(status.nextRun, isNull);
+        },
+      );
+
+      test("cancel() unblocks the cronId so it can be reused", () {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "cancelUnblocksTheCronIdSoItCanBeReused",
+        )..cancel();
+        expect(status.isRunning, isFalse);
+
+        expect(
+          () => scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "cancelUnblocksTheCronIdSoItCanBeReused",
+          ),
+          returnsNormally,
+        );
+      });
+
+      test("cronId is unblocked once all reoccurrences complete naturally, "
+          "without calling cancel()", () async {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "naturalCompletionUnblocksTheCronId",
+          cronReoccurrences: 1,
+        );
+
+        await _waitUntil(() => !status.isRunning);
+
+        expect(
+          () => scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "naturalCompletionUnblocksTheCronId",
+          ),
+          returnsNormally,
+        );
+      }, timeout: const Timeout(Duration(seconds: 10)));
+
+      test("progress records the broadcaster of each invocation", () async {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "progressRecordsTheBroadcasterOfEachInvocation",
+          cronReoccurrences: 1,
+        );
+
+        expect(status.progress, isEmpty);
+        await _waitUntil(() => !status.isRunning);
+        expect(status.progress, hasLength(1));
+        expect(status.progress.single, isA<TaskProgressBroadcaster>());
+      });
+
+      test(
+        "progress forwards updates to the user-provided progressBroadcaster",
+        () async {
+          TaskProgressBroadcaster? captured;
+          final status = scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "progressForwardsToUserProvidedProgressBroadcaster",
+            cronReoccurrences: 1,
+            progressBroadcaster: (b) => captured = b,
+          );
+
+          await _waitUntil(() => !status.isRunning);
+          expect(captured, isNotNull);
+          expect(status.progress, contains(captured));
+        },
+      );
+
+      test(
+        "cancel() stops future reoccurrences even while the current invocation is still running",
+        () async {
+          final slowScheduler = Scheduler([SlowVoidTask()]);
+          addTearDown(() => slowScheduler.close(silent: true));
+
+          final status = slowScheduler.cron<int>(
+            SlowVoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "cancelStopsReoccurrencesWhileTheInvocationIsRunning",
+          );
+
+          await _waitUntil(
+            () => slowScheduler.runningInvocations.values.any(
+              (s) => s.task.id == "slowVoidTask",
+            ),
+          );
+          status.cancel();
+          expect(status.isRunning, isFalse);
+
+          await _waitUntil(() => slowScheduler.runningInvocations.isEmpty);
+          // Give a would-be (buggy) reschedule a chance to fire.
+          await Future.delayed(const Duration(milliseconds: 1500));
+
+          expect(slowScheduler.cronTasks, isEmpty);
+        },
+        timeout: const Timeout(Duration(seconds: 10)),
+      );
+
+      test(
+        "toString() includes cronId, isRunning, reoccurrencesRemaining and nextRun",
+        () {
+          final status = scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "toStringIncludesAllFields",
+            cronReoccurrences: 1,
+          );
+
+          final output = status.toString();
+          expect(output, startsWith("CronTaskStatus("));
+          expect(output, contains("cronId: toStringIncludesAllFields"));
+          expect(output, contains("isRunning: true"));
+          expect(output, contains("reoccurrencesRemaining: 1"));
+          expect(output, contains("nextRun:"));
         },
       );
     });

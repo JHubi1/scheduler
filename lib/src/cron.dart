@@ -18,7 +18,7 @@ enum _CronFieldType {
 sealed class CronField {
   static CronField _parse(String raw, _CronFieldType? type) {
     if (raw.isEmpty) {
-      throw ArgumentError.value(raw, "raw", "Cron field cannot be empty.");
+      throw ArgumentError.value(raw, "raw", "Cron field cannot be empty");
     } else if (raw == "*") {
       return CronFieldWildcard();
     } else if (raw.contains(",")) {
@@ -31,16 +31,21 @@ sealed class CronField {
         throw ArgumentError.value(
           raw,
           "raw",
-          "Cron field with step must have exactly one '/' character.",
+          "Cron field with step must have exactly one '/' character",
         );
       }
-      final base = _parse(parts[0], type);
+
+      var base = _parse(parts[0], type);
+      if (base is CronFieldValue && type != null) {
+        base = CronFieldRange(base, CronFieldValue(type.max));
+      }
+
       final step = int.tryParse(parts[1]);
       if (step == null) {
         throw ArgumentError.value(
           raw,
           "raw",
-          "Cron field step must be an integer.",
+          "Cron field step must be an integer",
         );
       }
       return CronFieldStep(base, step);
@@ -50,21 +55,58 @@ sealed class CronField {
         throw ArgumentError.value(
           raw,
           "raw",
-          "Cron field range must have exactly one '-' character.",
+          "Cron field range must have exactly one '-' character",
         );
       }
       final start = _parse(parts[0], type);
       final end = _parse(parts[1], type);
       return CronFieldRange(start, end);
     } else {
-      final value = int.tryParse(raw);
+      var value = int.tryParse(raw);
       if (value == null) {
-        throw ArgumentError.value(
-          raw,
-          "raw",
-          "Cron field value must be an integer.",
-        );
-      } else if (type != null && (value < type.min || value > type.max)) {
+        if (type == .month) {
+          value = {
+            "jan": 1,
+            "feb": 2,
+            "mar": 3,
+            "apr": 4,
+            "may": 5,
+            "jun": 6,
+            "jul": 7,
+            "aug": 8,
+            "sep": 9,
+            "oct": 10,
+            "nov": 11,
+            "dec": 12,
+          }[raw.toLowerCase()];
+        } else if (type == .dayOfWeek) {
+          value = {
+            "sun": 0,
+            "mon": 1,
+            "tue": 2,
+            "wed": 3,
+            "thu": 4,
+            "fri": 5,
+            "sat": 6,
+          }[raw.toLowerCase()];
+        }
+        if ((type == .dayOfMonth || type == .dayOfWeek) &&
+            raw.toLowerCase() == "?") {
+          return CronFieldWildcard();
+        }
+        if (value == null) {
+          throw ArgumentError.value(
+            raw,
+            "raw",
+            "Cron field value must be an integer",
+          );
+        }
+      }
+
+      if (type == .dayOfWeek && value == 7) {
+        value = 0; // Sunday can be represented as 0 or 7
+      }
+      if (type != null && (value < type.min || value > type.max)) {
         throw ArgumentError.value(
           value,
           "raw",
@@ -119,14 +161,12 @@ final class CronFieldList extends CronField {
   CronFieldList(this.fields);
 
   @override
-  bool _validateSizeOfValues(_CronFieldType type) =>
-      fields.every((f) => f._validateSizeOfValues(type))
-      ? true
-      : throw ArgumentError.value(
-          fields,
-          "fields",
-          "Cron field list contains invalid values for type '${type.name}'.",
-        );
+  bool _validateSizeOfValues(_CronFieldType type) {
+    for (final field in fields) {
+      field._validateSizeOfValues(type);
+    }
+    return true;
+  }
 
   @override
   String format() {
@@ -168,29 +208,26 @@ final class CronFieldRange extends CronField {
   CronFieldRange(this.start, this.end) {
     if (start is! CronFieldValue || end is! CronFieldValue) {
       throw ArgumentError.value(
-        start,
+        start.toString(),
         "start",
-        "Cron field range start and end must be values.",
+        "Cron field range start and end must be values",
       );
     } else if ((start as CronFieldValue).value >
         (end as CronFieldValue).value) {
       throw ArgumentError.value(
-        start,
+        start.toString(),
         "start",
-        "Cron field range start must be less than end.",
+        "Cron field range start must be less than end",
       );
     }
   }
 
   @override
-  bool _validateSizeOfValues(_CronFieldType type) =>
-      start._validateSizeOfValues(type) && end._validateSizeOfValues(type)
-      ? true
-      : throw ArgumentError.value(
-          start,
-          "start",
-          "Cron field range is invalid for type '${type.name}'.",
-        );
+  bool _validateSizeOfValues(_CronFieldType type) {
+    start._validateSizeOfValues(type);
+    end._validateSizeOfValues(type);
+    return true;
+  }
 
   @override
   String format() {
@@ -230,28 +267,24 @@ final class CronFieldStep extends CronField {
   CronFieldStep(this.base, this.step) {
     if (base is! CronFieldWildcard && base is! CronFieldRange) {
       throw ArgumentError.value(
-        base,
+        base.toString(),
         "base",
-        "Cron field step base must be a wildcard or a range.",
+        "Cron field step base must be a wildcard or a range",
       );
     } else if (step <= 0) {
       throw ArgumentError.value(
         step,
         "step",
-        "Cron field step must be a positive integer.",
+        "Cron field step must be a positive integer",
       );
     }
   }
 
   @override
-  bool _validateSizeOfValues(_CronFieldType type) =>
-      base._validateSizeOfValues(type)
-      ? true
-      : throw ArgumentError.value(
-          base,
-          "base",
-          "Cron field step base is invalid for type '${type.name}'.",
-        );
+  bool _validateSizeOfValues(_CronFieldType type) {
+    base._validateSizeOfValues(type);
+    return true;
+  }
 
   @override
   String format() {
@@ -309,7 +342,7 @@ final class CronFieldValue extends CronField {
       throw ArgumentError.value(
         value,
         "value",
-        "Cron field value must be non-negative.",
+        "Cron field value must be non-negative",
       );
     }
   }
@@ -342,9 +375,10 @@ final class CronFieldValue extends CronField {
 
 /// A cron expression.
 ///
-/// The cron expression consists of five fields: minute, hour, day of month,
-/// month, and day of week. Each field can be a single value, a range of values,
-/// a list of values, or a wildcard. The fields are separated by spaces.
+/// The cron expression consists of six fields: seconds, minute, hour, day of
+/// month, month, and day of week. Each field is a [CronField].
+///
+/// See [parse] for details on the supported input syntax.
 class Cron {
   final CronField second;
   final CronField minute;
@@ -361,12 +395,12 @@ class Cron {
     required this.month,
     required this.dayOfWeek,
   }) {
-    second._validateSizeOfValues(_CronFieldType.second);
-    minute._validateSizeOfValues(_CronFieldType.minute);
-    hour._validateSizeOfValues(_CronFieldType.hour);
-    dayOfMonth._validateSizeOfValues(_CronFieldType.dayOfMonth);
-    month._validateSizeOfValues(_CronFieldType.month);
-    dayOfWeek._validateSizeOfValues(_CronFieldType.dayOfWeek);
+    second._validateSizeOfValues(.second);
+    minute._validateSizeOfValues(.minute);
+    hour._validateSizeOfValues(.hour);
+    dayOfMonth._validateSizeOfValues(.dayOfMonth);
+    month._validateSizeOfValues(.month);
+    dayOfWeek._validateSizeOfValues(.dayOfWeek);
   }
 
   /// Parses a cron expression string into a [Cron] object.
@@ -375,6 +409,25 @@ class Cron {
   ///
   /// The expression must have 5 or 6 fields, separated by spaces. If the
   /// expression has 5 fields, the seconds field is assumed to be 0.
+  ///
+  /// Each field can be a single value, a range of values, a list of values, a
+  /// step value, or a wildcard. The supported syntax is as follows:
+  ///
+  /// - `*` - matches any value
+  /// - `[i]` - matches a single value
+  /// - `[i]-[i]` - matches a range of values
+  /// - `[i],[i]` - matches a list of values
+  /// - `[i]/[s]` - matches a step value, `s` being an integer not a [CronField]
+  /// - `?` is supported for compatibility, but is treated as a wildcard
+  ///
+  /// The values can be between the following ranges:
+  ///
+  /// - Seconds: 0-59
+  /// - Minutes: 0-59
+  /// - Hours: 0-23
+  /// - Day of Month: 1-31
+  /// - Month: 1-12 or JAN-DEC
+  /// - Day of Week: 0-7 (0 and 7 are Sunday, others are 1 to 6) or SUN-SAT
   ///
   /// {@endtemplate}
   static Cron parse(String expression) {
@@ -388,13 +441,13 @@ class Cron {
       throw ArgumentError.value(
         expression,
         "expression",
-        "Cron expression must have 5 or 6 fields.",
+        "Cron expression must have 5 or 6 fields",
       );
     }
 
     final output = <CronField>[if (parts.length != 6) CronFieldValue(0)];
     for (final part in parts) {
-      output.add(CronField._parse(part, _CronFieldType.values[output.length]));
+      output.add(CronField._parse(part, .values[output.length]));
     }
 
     return Cron(
@@ -409,10 +462,10 @@ class Cron {
 
   /// Tries to parse a cron expression string into a [Cron] object.
   ///
-  /// {@macro com.jhubi1.scheduler.Cron.parse}
-  ///
   /// If the expression is invalid, this method returns null instead of throwing
   /// any errors or exceptions.
+  ///
+  /// {@macro com.jhubi1.scheduler.Cron.parse}
   static Cron? tryParse(String expression) {
     try {
       return parse(expression);
@@ -890,31 +943,31 @@ class CronPrettyStringL10n {
       throw ArgumentError.value(
         weekdays,
         "weekdays",
-        "weekdays must have exactly 7 entries.",
+        "weekdays must have exactly 7 entries",
       );
     } else if (months.length != 12) {
       throw ArgumentError.value(
         months,
         "months",
-        "months must have exactly 12 entries.",
+        "months must have exactly 12 entries",
       );
     } else if (!_hasAllUnits(every)) {
       throw ArgumentError.value(
         every,
         "every",
-        "every must have an entry for every CronUnitKind.",
+        "every must have an entry for every CronUnitKind",
       );
     } else if (!_hasAllUnits(of)) {
       throw ArgumentError.value(
         of,
         "of",
-        "of must have an entry for every CronUnitKind.",
+        "of must have an entry for every CronUnitKind",
       );
     } else if (!_hasAllUnits(unitNames)) {
       throw ArgumentError.value(
         unitNames,
         "unitNames",
-        "unitNames must have an entry for every CronUnitKind.",
+        "unitNames must have an entry for every CronUnitKind",
       );
     }
   }
@@ -992,7 +1045,7 @@ class CronPrettyStringL10n {
   static final german = CronPrettyStringL10n(
     andOxfordComma: false,
     and: "und",
-    at: "Bei",
+    at: "In",
     from: "von",
     through: "bis",
     every: const {

@@ -79,6 +79,21 @@ void main() {
         final p = TaskProgress.unknown(message: "msg");
         expect(p.message, "msg");
       });
+
+      test("complete() sets progress to 1.0", () {
+        expect(TaskProgress.complete().progress, 1.0);
+      });
+
+      test("complete() forwards optional fields", () {
+        final p = TaskProgress.complete(
+          step: "a",
+          steps: ["a", "b"],
+          message: "msg",
+        );
+        expect(p.step, "a");
+        expect(p.steps, ["a", "b"]);
+        expect(p.message, "msg");
+      });
     });
 
     group("copyWith", () {
@@ -181,6 +196,10 @@ void main() {
         );
       });
 
+      test("complete() uses compact form", () {
+        expect(TaskProgress.complete().toString(), "TaskProgress.complete()");
+      });
+
       test("normal progress includes the progress value", () {
         expect(TaskProgress(progress: 0.5).toString(), contains("0.5"));
       });
@@ -251,6 +270,59 @@ void main() {
     test("removeListener is a no-op for an unknown listener", () async {
       final broadcaster = await spawnBroadcaster();
       expect(() => broadcaster.removeListener((_) {}), returnsNormally);
+    });
+
+    test("isClosed is false while progress is still being broadcast", () async {
+      final broadcaster = await spawnBroadcaster();
+      expect(broadcaster.isClosed, isFalse);
+    });
+
+    test("isClosed becomes true once the invocation completes", () async {
+      final instance = await EchoTask().spawn();
+      addTearDown(instance.close);
+
+      TaskProgressBroadcaster? captured;
+      final (_, future) = instance.invoke(
+        "hello",
+        progressBroadcaster: (b) => captured = b,
+      );
+      await future;
+
+      expect(captured!.isClosed, isTrue);
+    });
+
+    group("progressHistory", () {
+      test("starts empty before any progress update is broadcast", () async {
+        final broadcaster = await spawnBroadcaster();
+        expect(broadcaster.progressHistory, isEmpty);
+      });
+
+      test(
+        "accumulates prior updates, excluding the current progress",
+        () async {
+          final instance = await ProgressTask().spawn();
+          addTearDown(instance.close);
+
+          TaskProgressBroadcaster? captured;
+          final (_, future) = instance.invoke(
+            3,
+            progressBroadcaster: (b) => captured = b,
+          );
+          await future;
+
+          final history = captured!.progressHistory;
+          expect(history, isNotEmpty);
+          expect(history, isNot(contains(captured!.progress)));
+        },
+      );
+
+      test("is unmodifiable", () async {
+        final broadcaster = await spawnBroadcaster();
+        expect(
+          () => broadcaster.progressHistory.add(TaskProgress.unknown()),
+          throwsUnsupportedError,
+        );
+      });
     });
   });
 }

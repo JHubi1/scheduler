@@ -207,6 +207,20 @@ class VoidTask extends Task<int, void> {
   FutureOr<void> invoke(int input, TaskProgressCommunicator progress) {}
 }
 
+/// Void-output task that stays "running" for a short while, used to observe a
+/// cron invocation while it is still in progress.
+class SlowVoidTask extends Task<int, void> {
+  @override
+  String get id => "slowVoidTask";
+  @override
+  bool get allowSimultaneous => true;
+
+  @override
+  Future<void> invoke(int input, TaskProgressCommunicator progress) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+  }
+}
+
 /// Echo task that allows its state to be restored, used for
 /// [Scheduler.restorableState] / [Scheduler.fromRestorableState] tests.
 class RestorableTask extends Task<String, String> {
@@ -220,6 +234,20 @@ class RestorableTask extends Task<String, String> {
   @override
   FutureOr<String> invoke(String input, TaskProgressCommunicator progress) =>
       input;
+}
+
+/// Void-output, restorable task, used to exercise [Scheduler.cron] restoration
+/// via [Scheduler.fromRestorableState].
+class RestorableVoidTask extends Task<int, void> {
+  @override
+  String get id => "restorableVoidTask";
+  @override
+  bool get allowSimultaneous => true;
+  @override
+  bool get allowRestoration => true;
+
+  @override
+  FutureOr<void> invoke(int input, TaskProgressCommunicator progress) {}
 }
 
 /// Restorable, delay-based task, used to hold a slot open in restorableState

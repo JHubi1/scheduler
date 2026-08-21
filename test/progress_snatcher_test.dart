@@ -256,6 +256,40 @@ void main() {
     });
 
     test(
+      "includes a hint about void input types when the target type is Null",
+      () {
+        late final Object error;
+        try {
+          final dynamic value = "hello";
+          value as List<Null>;
+        } catch (e) {
+          error = e;
+        }
+
+        final parsed = castErrorParser(error);
+        expect(parsed, isA<StateError>());
+        expect(
+          parsed!.message,
+          contains("passing `null` to a task with a `void` input type"),
+        );
+      },
+    );
+
+    test("omits the Null hint when the target type is not Null", () {
+      late final Object error;
+      try {
+        final dynamic value = 5;
+        value as String;
+      } catch (e) {
+        error = e;
+      }
+
+      final parsed = castErrorParser(error);
+      expect(parsed, isA<StateError>());
+      expect(parsed!.message, isNot(contains("commonly caused")));
+    });
+
+    test(
       "returns null for a string that merely resembles the cast error format",
       () {
         expect(

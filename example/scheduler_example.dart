@@ -90,14 +90,38 @@ void main() async {
       "This took ${DateTime.now().difference(afterNow).inSeconds} mores seconds to complete (${DateTime.now().difference(then).inSeconds} seconds in total).",
     );
     restoredScheduler.close();
-  } else if (mode == "cron") {
-    scheduler.cron(
+  } else if (mode == "cronCancel") {
+    final cronTask = scheduler.cron(
       CronTest,
       null,
       Cron.parse("0-59/5 * * * * *"),
+      cronId: "cronTest",
       cronReoccurrences: 3,
     );
-    await Future.delayed(const Duration(seconds: 20));
+
+    print(cronTask);
+    await Future.delayed(const Duration(seconds: 5));
+    print(cronTask);
+    cronTask.cancel();
+    await Future.delayed(const Duration(seconds: 5));
+    print(cronTask);
+  } else if (mode == "cron") {
+    final cronTask = scheduler.cron(
+      CronTest,
+      null,
+      Cron.parse("0-59/5 * * * * *"),
+      cronId: "cronTest",
+      cronReoccurrences: 3,
+    );
+
+    print(cronTask);
+    await Future.delayed(const Duration(seconds: 5));
+    print(cronTask);
+    await Future.delayed(const Duration(seconds: 5));
+    print(cronTask);
+    await Future.delayed(const Duration(seconds: 5));
+    print(cronTask);
+    await Future.delayed(const Duration(seconds: 5));
   } else {
     print(
       (await (await scheduler.invoke(
@@ -193,7 +217,7 @@ class DelayedModeResponse extends Task<Null, String> {
       "Executed echo at ${DateTime.now().toIso8601String().split(".").first}";
 }
 
-class CronTest extends Task<void, void> {
+class CronTest extends Task<Null, void> {
   @override
   String get id => "cronTest";
   @override
@@ -202,7 +226,10 @@ class CronTest extends Task<void, void> {
   bool get allowRestoration => true;
 
   @override
-  void invoke(input, progress) => print(
-    "Executed cron test at ${DateTime.now().toIso8601String().split(".").first}",
-  );
+  void invoke(input, progress) {
+    print(
+      "Executed cron test at ${DateTime.now().toIso8601String().split(".").first}",
+    );
+    progress.set(TaskProgress.complete());
+  }
 }

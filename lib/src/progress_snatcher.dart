@@ -124,7 +124,13 @@ StateError? castErrorParser(Object? error) {
   final type = parts[1];
   final subtype = "<${parts[3].split("<").last.split(">").first}>";
 
+  final hint = subtype.contains("Null")
+      ? " This is commonly caused by passing `null` to a task with a `void` "
+            "input type without specifying the type argument explicitly, "
+            "since `null` always infers as `Null`, not `void`."
+      : "";
+
   return StateError(
-    "Task $type does not match <I, O> of $subtype, the passed input and output types.",
+    "Task $type does not match <I, O> of $subtype, the passed input and output types.$hint",
   );
 }

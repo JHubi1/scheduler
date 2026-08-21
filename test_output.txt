@@ -1,0 +1,376 @@
+00:00 +0: loading test\cron_test.dart
+00:00 +0: test\inline_task_test.dart: InlineTask id reflects the constructor argument
+00:00 +1: test\cron_test.dart: CronField parsing (via Cron.parse) wildcard
+00:00 +2: test\cron_test.dart: CronField parsing (via Cron.parse) wildcard
+00:00 +3: test\inline_task_test.dart: InlineTask forwards displayName, allowSimultaneous, timeout and metadata
+00:00 +4: test\cron_test.dart: CronField parsing (via Cron.parse) single value
+00:00 +5: test\inline_task_test.dart: InlineTask defaults allowSimultaneous, timeout and metadata
+00:00 +6: test\cron_test.dart: CronField parsing (via Cron.parse) list of values
+00:00 +7: test\inline_task_test.dart: InlineTask throws ArgumentError for a non-camelCase id
+00:00 +8: test\cron_test.dart: CronField parsing (via Cron.parse) range
+00:00 +9: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +10: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +11: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +12: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +13: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +14: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +15: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +16: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +17: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +18: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +19: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +20: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +21: test\inline_task_test.dart: InlineTask invoke delegates to the provided function and forwards input
+00:00 +22: test\cron_test.dart: CronField.format reconstructs from parsed value, ignoring raw padding
+00:00 +23: test\inline_task_test.dart: InlineTask invoke supports async functions
+00:00 +24: test\inline_task_test.dart: InlineTask invoke supports async functions
+00:00 +25: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +26: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +27: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +28: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +29: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +30: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +31: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +32: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +33: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +34: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +35: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +36: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +37: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +38: test\priority_queue_test.dart: StablePriorityQueue isEmpty on a fresh queue
+00:00 +39: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +40: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +41: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +42: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +43: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +44: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +45: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +46: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +47: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +48: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +49: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +50: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +51: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +52: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +53: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +54: test\inline_task_test.dart: InlineTask works end-to-end through a Scheduler
+00:00 +55: test\priority_queue_test.dart: StablePriorityQueue toList returns all elements in priority order
+00:00 +56: test\priority_queue_test.dart: StablePriorityQueue toList returns all elements in priority order
+00:00 +57: test\cron_test.dart: CronField invalid combinations CronFieldStep requires a positive step
+00:00 +58: test\priority_queue_test.dart: StablePriorityQueue equal-priority elements are returned in insertion (FIFO) order
+00:00 +59: test\cron_test.dart: Cron.parse assumes a 0 seconds field when given 5 fields
+00:00 +60: test\priority_queue_test.dart: StablePriorityQueue remove deletes the specified element
+00:00 +61: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +62: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +63: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +64: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +65: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +66: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +67: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +68: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +69: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +70: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +71: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +72: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +73: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +74: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +75: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +76: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +77: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +78: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +79: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +80: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +81: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +82: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +83: test\progress_snatcher_test.dart: ProgressSnatcher singleton instance returns the same object on repeated calls
+00:00 +84: test\priority_queue_test.dart: StablePriorityQueue postponeExecution removeFirstSafe returns null when all elements are postponed
+00:00 +85: test\cron_test.dart: Cron.toString includes all field values
+00:00 +86: test\progress_snatcher_test.dart: ProgressSnatcher singleton close() resets the singleton; next access creates a fresh one
+00:00 +87: test\priority_queue_test.dart: StablePriorityQueue postponeExecution removeFirstSafe returns the element when none are postponed
+00:00 +88: test\cron_test.dart: Cron.toPrettyString single minute value
+00:00 +89: test\cron_test.dart: Cron.toPrettyString single minute value
+00:00 +90: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +91: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +92: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +93: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +94: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +95: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +96: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +97: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +98: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +99: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +100: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +101: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +102: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +103: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +104: test\progress_snatcher_test.dart: ProgressSnatcher auto() progress updates are forwarded to addListener listeners
+00:00 +105: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +106: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +107: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +108: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +109: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +110: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +111: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +112: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +113: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +114: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +115: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +116: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +117: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +118: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +119: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +120: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +121: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +122: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +123: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +124: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +125: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +126: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +127: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +128: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +129: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +130: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +131: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +132: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +133: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +134: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +135: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +136: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +137: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +138: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +139: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +140: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +141: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +142: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +143: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +144: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +145: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +146: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +147: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +148: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +149: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +150: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +151: test\race_condition_test.dart: Race conditions 100 identical invocations with priorities 0..99 on a single simultaneous slot all complete, highest priority first
+00:00 +152: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +153: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +154: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +155: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +156: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +157: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +158: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +159: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +160: test\race_condition_test.dart: Race conditions 100 simultaneous identical invocations on an allowSimultaneous task all complete with the correct per-invocation output
+00:00 +161: test\scheduler_config_test.dart: SchedulerConfig validation throws ArgumentError for a non-positive simultaneousInvocations
+00:00 +162: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +163: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +164: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +165: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +166: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +167: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +168: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +169: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +170: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +171: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +172: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +173: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +174: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +175: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +176: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +177: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +178: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +179: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +180: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +181: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +182: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +183: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +184: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +185: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +186: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +187: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +188: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +189: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +190: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +191: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +192: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +193: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +194: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +195: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +196: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +197: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +198: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +199: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +200: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +201: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +202: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +203: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +204: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +205: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +206: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +207: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +208: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +209: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +210: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +211: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +212: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +213: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +214: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +215: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +216: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +217: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +218: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +219: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +220: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +221: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +222: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +223: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +224: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +225: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +226: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +227: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +228: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +229: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +230: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +231: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +232: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +233: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +234: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +235: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +236: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +237: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +238: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +239: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +240: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +241: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +242: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +243: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +244: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +245: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +246: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +247: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +248: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +249: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +250: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +251: test\race_condition_test.dart: Race conditions changing config while a job is running does not lose or duplicate queued invocations
+00:00 +252: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +253: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +254: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +255: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +256: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +257: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +258: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +259: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +260: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +261: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +262: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +263: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +264: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +265: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +266: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +267: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +268: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +269: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +270: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +271: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +272: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +273: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +274: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +275: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +276: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +277: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +278: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +279: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +280: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +281: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +282: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +283: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +284: test\scheduler_test.dart: Scheduler priority ordering higher-priority tasks execute before lower-priority ones
+00:00 +285: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +286: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +287: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +288: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +289: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +290: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +291: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +292: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +293: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +294: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +295: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +296: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +297: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +298: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +299: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +300: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +301: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +302: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +303: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +304: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +305: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +306: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +307: test\race_condition_test.dart: Race conditions many concurrent invocations of a non-simultaneous task never overlap in execution
+00:00 +308: test\scheduler_test.dart: Scheduler processQueue parameter a queued task with processQueue: false is picked up automatically once a slot frees up
+00:00 +309: test\task_status_test.dart: TaskStatusFutureExtension .result awaits full completion, not just invocation start
+00:00 +310: test\scheduler_test.dart: Scheduler queueExpiration an invocation that expires in the queue fails with a TimeoutException instead of hanging forever
+00:00 +311: test\scheduler_test.dart: Scheduler queueExpiration an invocation that expires in the queue fails with a TimeoutException instead of hanging forever
+00:00 +312: test\scheduler_test.dart: Scheduler queueExpiration an invocation that expires in the queue fails with a TimeoutException instead of hanging forever
+00:00 +313: test\scheduler_test.dart: Scheduler queueExpiration an invocation that expires in the queue fails with a TimeoutException instead of hanging forever
+00:00 +314: test\scheduler_test.dart: Scheduler queueExpiration an invocation that expires in the queue fails with a TimeoutException instead of hanging forever
+00:00 +315: test\task_status_test.dart: Task.timeout no timeout is applied when Task.timeout is null
+00:00 +316: test\task_status_test.dart: Task.timeout no timeout is applied when Task.timeout is null
+00:00 +317: test\scheduler_test.dart: Scheduler queueExpiration no expiration is applied when queueExpiration is null
+00:00 +318: test\scheduler_test.dart: Scheduler queueExpiration no expiration is applied when queueExpiration is null
+00:00 +319: test\scheduler_test.dart: Scheduler queueExpiration no expiration is applied when queueExpiration is null
+00:00 +320: test\scheduler_test.dart: Scheduler processQueueLockAssert asserts if the queue loop is never triggered after processQueue: false
+00:05 +321: test\scheduler_test.dart: Scheduler processQueueLockAssert does not assert when processQueueLockAssert is false
+00:11 +322: test\scheduler_test.dart: Scheduler error propagation task errors surface through TaskStatus.future, not the invoke() future
+00:13 +323: test\scheduler_test.dart: Scheduler error propagation the .output helper rethrows the original task error
+00:14 +324: test\scheduler_test.dart: Scheduler retryOptions a task that fails twice succeeds on the third attempt with default retryOptions
+00:15 +325: test\scheduler_test.dart: Scheduler retryOptions a permanently-failing task exhausts retryOptions.maxAttempts
+00:16 +326: test\scheduler_test.dart: Scheduler completeRunningInvocations resolves immediately when nothing is running
+00:16 +327: test\scheduler_test.dart: Scheduler completeRunningInvocations resolves once all running invocations have completed
+00:16 +328: test\scheduler_test.dart: Scheduler close close() completes without error
+00:16 +329: test\scheduler_test.dart: Scheduler close graceful close waits for running invocations to complete
+00:16 +330: test\scheduler_test.dart: Scheduler close gracefulTimeout stops waiting for slow invocations after the timeout
+00:16 +331: test\scheduler_test.dart: Scheduler close graceful: false closes immediately without waiting
+00:16 +332: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState restorableState only includes invocations from restoration-allowed tasks
+00:16 +333: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState fromRestorableState restores queued invocations and runs them
+00:16 +334: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState fromRestorableState throws ArgumentError for an unknown task id
+00:16 +335: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState fromRestorableState throws ArgumentError for a non-restorable task
+00:16 +336: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState fromRestorableState throws ArgumentError for malformed state
+00:16 +337: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState restorableState round-trips through SchedulerConfig.toJson/fromJson
+00:16 +338: test\scheduler_test.dart: Scheduler restorableState / fromRestorableState restorableState serializes a still-waiting delayed invocation
+00:16 +339: test\scheduler_test.dart: Scheduler fromRestorableState wait list restores a queued delayed invocation and lets it run
+00:17 +340: test\scheduler_test.dart: Scheduler fromRestorableState wait list restores a cron wait list entry with its Cron expression
+00:17 +341: test\scheduler_test.dart: Scheduler fromRestorableState wait list blocks the cronId of a restored cron entry from being reused
+00:17 +342: test\scheduler_test.dart: Scheduler fromRestorableState wait list throws ArgumentError when the wait list contains a duplicate cronId
+00:17 +343: test\scheduler_test.dart: Scheduler fromRestorableState wait list skips a wait list entry whose scheduled time already passed
+00:17 +344: test\scheduler_test.dart: Scheduler fromRestorableState wait list throws ArgumentError for an unknown task id in the wait list
+00:17 +345: test\scheduler_test.dart: Scheduler fromRestorableState wait list throws ArgumentError for a non-restorable task in the wait list
+00:17 +346: test\scheduler_test.dart: Scheduler fromRestorableState wait list throws ArgumentError for a malformed wait list entry
+00:17 +347: test\scheduler_test.dart: Scheduler delayed queues the invocation immediately but only runs it after the delay
+00:17 +348: test\scheduler_test.dart: Scheduler delayed throws ArgumentError when delay is not greater than zero
+00:17 +349: test\scheduler_test.dart: Scheduler delayed throws ArgumentError for an unknown task type
+00:17 +350: test\scheduler_test.dart: Scheduler delayed throws a friendly StateError for a task type/generic mismatch
+00:17 +351: test\scheduler_test.dart: Scheduler delayed supports a catchError callback alongside a successful invocation
+00:17 +352: test\scheduler_test.dart: Scheduler cron schedules the task and exposes it via cronTasks immediately
+00:17 +353: test\scheduler_test.dart: Scheduler cron recurs the configured number of times, then stops
+00:19 +354: test\scheduler_test.dart: Scheduler cron recurs indefinitely when cronReoccurrences is null
+00:19 +355: test\scheduler_test.dart: Scheduler cron throws ArgumentError for an unknown task type
+00:19 +356: test\scheduler_test.dart: Scheduler cron throws a friendly StateError for a task type/generic mismatch
+00:19 +357: test\scheduler_test.dart: Scheduler cron throws ArgumentError when startTime is not in the future
+00:19 +358: test\scheduler_test.dart: Scheduler cron throws ArgumentError when cronId is not camelCase
+00:19 +359: test\scheduler_test.dart: Scheduler cron throws ArgumentError when cronReoccurrences is not positive
+00:19 +360: test\scheduler_test.dart: Scheduler cron stops recurring once the scheduler is closed while the cron task is waiting
+00:19 +361: test\scheduler_test.dart: Scheduler cron allowRestoration defaults to false and is excluded from restorableState
+00:19 +362: test\scheduler_test.dart: Scheduler CronTaskStatus cronId exposes the id passed to cron()
+00:19 +363: test\scheduler_test.dart: Scheduler CronTaskStatus isRunning is true after scheduling and false after cancel()
+00:19 +364: test\scheduler_test.dart: Scheduler CronTaskStatus isRunning becomes false once all reoccurrences complete, without calling cancel()
+00:19 +365: test\scheduler_test.dart: Scheduler CronTaskStatus reoccurrencesRemaining is null when cronReoccurrences is unset
+00:19 +366: test\scheduler_test.dart: Scheduler CronTaskStatus reoccurrencesRemaining decreases as the cron task recurs
+00:22 +367: test\scheduler_test.dart: Scheduler CronTaskStatus nextRun returns an upcoming DateTime while scheduled, and null after cancel()
+00:22 +368: test\scheduler_test.dart: Scheduler CronTaskStatus cancel() unblocks the cronId so it can be reused
+00:22 +369: test\scheduler_test.dart: Scheduler CronTaskStatus cronId is unblocked once all reoccurrences complete naturally, without calling cancel()
+00:24 +370: test\scheduler_test.dart: Scheduler CronTaskStatus progress records the broadcaster of each invocation
+00:25 +371: test\scheduler_test.dart: Scheduler CronTaskStatus progress forwards updates to the user-provided progressBroadcaster
+00:26 +372: test\scheduler_test.dart: Scheduler CronTaskStatus cancel() stops future reoccurrences even while the current invocation is still running
+00:28 +373: test\scheduler_test.dart: Scheduler CronTaskStatus toString() includes cronId, isRunning, reoccurrencesRemaining and nextRun
+00:28 +374: All tests passed!

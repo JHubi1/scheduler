@@ -105,6 +105,19 @@ final class TaskProgress {
     );
   }
 
+  factory TaskProgress.complete({
+    String? step,
+    List<String>? steps,
+    String? message,
+  }) {
+    return TaskProgress(
+      progress: 1.0,
+      step: step,
+      steps: steps,
+      message: message,
+    );
+  }
+
   Map<String, Object?> toJson() => {
     "progress": progress,
     "step": step,
@@ -127,6 +140,8 @@ final class TaskProgress {
       return "TaskProgress.unknown()";
     } else if (this == TaskProgress.indeterminate()) {
       return "TaskProgress.indeterminate()";
+    } else if (this == TaskProgress.complete()) {
+      return "TaskProgress.complete()";
     } else {
       final buffer = StringBuffer()
         ..write("TaskProgress(")
@@ -231,16 +246,31 @@ final class TaskProgressCommunicator {
 
 /// A class that allows a task to broadcast its progress to multiple listeners.
 final class TaskProgressBroadcaster {
+  /// Returns `true` if the broadcaster has been closed and can no longer be
+  /// used.
+  bool get isClosed => _closed;
   bool _closed = false;
 
-  TaskProgress _progress = TaskProgress.unknown();
+  /// The current progress of the task.
   TaskProgress get progress => _progress.copyWith();
+  TaskProgress _progress = TaskProgress.unknown();
+
+  /// A list of all progress updates that have been broadcasted.
+  ///
+  /// The value of [progress] is not yet part of this list, as it is only added
+  /// after the next broadcast.
+  List<TaskProgress> get progressHistory => List.unmodifiable(_progressHistory);
+  final List<TaskProgress> _progressHistory = [];
 
   final int invocationId;
   TaskProgressBroadcaster._({required this.invocationId});
 
   late final _controller = StreamController<TaskProgress>.broadcast(sync: true)
-    ..stream.listen((p) => _progress = p);
+    ..stream.listen((p) {
+      final tmp = _progress;
+      _progress = p;
+      _progressHistory.add(tmp.copyWith().._removeParent());
+    });
   final Map<void Function(TaskProgress), StreamSubscription> _listeners = {};
   void addListener(void Function(TaskProgress p) listener) => _closed
       ? null
@@ -306,16 +336,21 @@ extension TaskStatusFutureExtension<I extends Object?, O extends Object?>
 }
 
 /// A class that represents the status of a task invocation.
-/// 
+///
 /// The [TaskStatus] class contains information about the task invocation, such
 /// as the invocation id, the task, the progress, and the result of the
 /// invocation.
-/// 
+///
 /// This class is the primary way to interact with a task invocation, and to get
 /// information about its progress and result.
 final class TaskStatus<I extends Object?, O extends Object?> {
+  /// The unique identifier for the task invocation.
   late final int invocationId;
+
+  /// The task that is being invoked.
   late final Task<I, O> task;
+
+  /// The current progress of the task invocation.
   late final TaskProgressBroadcaster progress;
 
   /// The result of the task invocation.
@@ -447,7 +482,7 @@ final class TaskStatus<I extends Object?, O extends Object?> {
     int? id;
     int? previousId;
     TaskResult<I, O>? result;
-    final startTime = DateTime.now();
+    final startTime = DateTime.timestamp();
     var retryCount = 0;
 
     try {
@@ -489,18 +524,19 @@ final class TaskStatus<I extends Object?, O extends Object?> {
         resultData = await compute();
       }
 
+      final evalTime = DateTime.timestamp();
       result = TaskResultSuccess<I, O>._(
         output: resultData,
-        executionTime: DateTime.now().difference(startTime),
+        executionTime: evalTime.difference(startTime),
         startTime: startTime,
-        endTime: DateTime.now(),
+        endTime: evalTime,
       );
     } catch (e, s) {
       result = TaskResultError<I, O>._(
         exception: e,
         stackTrace: s,
         startTime: startTime,
-        throwTime: DateTime.now(),
+        throwTime: DateTime.timestamp(),
         retryCount: retryCount,
         retryOptions: retryOptions,
       );
@@ -709,15 +745,13 @@ class TaskMetadata {
 ///
 /// ```dart
 /// class MyTask extends Task<Null, Null> {
-/// // or alternatively
+/// // or
 /// class MyTask extends Task<Null, void> {
 /// ```
 ///
-/// Using `void` as input type works during compile time, but because there's no
-/// way to create a real `void` value in Dart, you'd normally have to pass
-/// `null` as input value. This does not work though as Scheduler tries to keep
-/// everything type-safe, and because `null` is not a `void`, it will throw a
-/// runtime error.
+/// Using `void` as input type is not recommended, because then the input
+/// generic has to be set to `void` manually, like:
+/// `scheduler.invoke<void, void>(...)`.
 abstract class Task<I extends Object?, O extends Object?> {
   bool _closed = false;
   final Map<int, bool> _invocationClosed = {};
@@ -1285,17 +1319,17 @@ final class TaskBundle {
   }) {
     _cullingTimer = Timer.periodic(interval, (_) async {
       final toRemove = <TaskInstance>[];
+      final evalTime = DateTime.timestamp();
       for (final instance in _running) {
         if (instance._closed.isCompleted ||
             (instance._activeRequests.isEmpty &&
                 _cullingSuspects[instance] != null &&
-                DateTime.now().difference(_cullingSuspects[instance]!) >
-                    idleTime)) {
+                evalTime.difference(_cullingSuspects[instance]!) > idleTime)) {
           toRemove.add(instance);
         }
 
         if (instance._activeRequests.isEmpty) {
-          _cullingSuspects[instance] ??= DateTime.now();
+          _cullingSuspects[instance] ??= evalTime;
         } else {
           _cullingSuspects.remove(instance);
         }
@@ -1316,4 +1350,43 @@ final class TaskBundle {
     _cullingTimer = null;
     _cullingSuspects.clear();
   }
+}
+
+/// A task that is defined inline with a function.
+///
+/// This should not be used for anything important as it a rather messy way of
+/// defining a task. It is mainly intended for testing and prototyping. For
+/// production code, it is recommended to define a task as a subclass of [Task].
+final class InlineTask<I extends Object?, O extends Object?>
+    extends Task<I, O> {
+  final FutureOr<O> Function(I input, TaskProgressCommunicator progress)
+  _invokeFunction;
+
+  @override
+  final String id;
+  @override
+  final String? displayName;
+  @override
+  final bool allowSimultaneous;
+  @override
+  bool get allowRestoration => false;
+  @override
+  final Duration? timeout;
+  @override
+  final Map<String, String> metadata;
+
+  InlineTask({
+    required this.id,
+    required FutureOr<O> Function(I input, TaskProgressCommunicator progress)
+    invoke,
+    this.displayName,
+    this.allowSimultaneous = false,
+    this.timeout,
+    Map<String, String> metadata = const {},
+  }) : _invokeFunction = invoke,
+       metadata = Map.unmodifiable(metadata);
+
+  @override
+  FutureOr<O> invoke(I input, TaskProgressCommunicator progress) =>
+      _invokeFunction.call(input, progress);
 }

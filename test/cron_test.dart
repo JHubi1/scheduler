@@ -94,6 +94,59 @@ void main() {
       final hour = cron.hour as CronFieldList;
       expect(hour.fields, everyElement(isA<CronFieldRange>()));
     });
+
+    test("step with a single value base expands it to a range up to max", () {
+      final cron = Cron.parse("5/15 * * * * *");
+      final second = cron.second as CronFieldStep;
+      final base = second.base as CronFieldRange;
+      expect((base.start as CronFieldValue).value, 5);
+      expect((base.end as CronFieldValue).value, 59);
+      expect(second.step, 15);
+    });
+  });
+
+  group("CronField parsing of named values", () {
+    test("month accepts case-insensitive 3-letter abbreviations", () {
+      final cron = Cron.parse("0 0 0 1 jan *");
+      expect((cron.month as CronFieldValue).value, 1);
+      expect((Cron.parse("0 0 0 1 DEC *").month as CronFieldValue).value, 12);
+    });
+
+    test("day of week accepts case-insensitive 3-letter abbreviations", () {
+      final cron = Cron.parse("0 0 0 * * mon");
+      expect((cron.dayOfWeek as CronFieldValue).value, 1);
+      expect(
+        (Cron.parse("0 0 0 * * SUN").dayOfWeek as CronFieldValue).value,
+        0,
+      );
+    });
+
+    test("day of week value 7 is normalized to 0 (Sunday)", () {
+      final cron = Cron.parse("0 0 0 * * 7");
+      expect((cron.dayOfWeek as CronFieldValue).value, 0);
+    });
+
+    test("'?' is treated as a wildcard for day of month", () {
+      final cron = Cron.parse("0 0 12 ? * WED");
+      expect(cron.dayOfMonth, isA<CronFieldWildcard>());
+    });
+
+    test("'?' is treated as a wildcard for day of week", () {
+      final cron = Cron.parse("0 0 12 5 * ?");
+      expect(cron.dayOfWeek, isA<CronFieldWildcard>());
+    });
+
+    test("an unknown month name throws ArgumentError", () {
+      expect(() => Cron.parse("0 0 0 1 foo *"), throwsArgumentError);
+    });
+
+    test("an unknown day of week name throws ArgumentError", () {
+      expect(() => Cron.parse("0 0 0 * * foo"), throwsArgumentError);
+    });
+
+    test("named values are not accepted for unrelated fields", () {
+      expect(() => Cron.parse("0 jan 0 * * *"), throwsArgumentError);
+    });
   });
 
   group("CronField.format", () {
@@ -134,6 +187,51 @@ void main() {
       final field = CronFieldValue(5);
       final updated = field.copyWith();
       expect(updated.value, 5);
+    });
+
+    test("CronFieldWildcard.copyWith() returns an equal wildcard", () {
+      expect(CronFieldWildcard().copyWith(), CronFieldWildcard());
+    });
+
+    test("CronFieldList.copyWith replaces the fields", () {
+      final list = CronFieldList([CronFieldValue(1)]);
+      final updated = list.copyWith(fields: [CronFieldValue(2)]);
+      expect(updated.fields, [CronFieldValue(2)]);
+    });
+
+    test("CronFieldList.copyWith keeps the fields when none is given", () {
+      final list = CronFieldList([CronFieldValue(1)]);
+      expect(list.copyWith().fields, list.fields);
+    });
+
+    test("CronFieldRange.copyWith replaces start and end", () {
+      final range = CronFieldRange(CronFieldValue(1), CronFieldValue(5));
+      final updated = range.copyWith(
+        start: CronFieldValue(2),
+        end: CronFieldValue(6),
+      );
+      expect(updated.start, CronFieldValue(2));
+      expect(updated.end, CronFieldValue(6));
+    });
+
+    test("CronFieldRange.copyWith keeps start/end when none is given", () {
+      final range = CronFieldRange(CronFieldValue(1), CronFieldValue(5));
+      final updated = range.copyWith();
+      expect(updated.start, range.start);
+      expect(updated.end, range.end);
+    });
+
+    test("CronFieldStep.copyWith replaces base and step", () {
+      final step = CronFieldStep(CronFieldWildcard(), 5);
+      final updated = step.copyWith(base: CronFieldWildcard(), step: 10);
+      expect(updated.step, 10);
+    });
+
+    test("CronFieldStep.copyWith keeps base/step when none is given", () {
+      final step = CronFieldStep(CronFieldWildcard(), 5);
+      final updated = step.copyWith();
+      expect(updated.base, step.base);
+      expect(updated.step, step.step);
     });
   });
 
@@ -364,6 +462,62 @@ void main() {
     });
   });
 
+  group("Cron equality and hashCode", () {
+    test("two crons parsed from the same expression are equal", () {
+      expect(Cron.parse("1 2 3 4 5 6"), equals(Cron.parse("1 2 3 4 5 6")));
+    });
+
+    test("crons with a differing field are not equal", () {
+      expect(
+        Cron.parse("1 2 3 4 5 6"),
+        isNot(equals(Cron.parse("0 2 3 4 5 6"))),
+      );
+    });
+
+    test("is not equal to an unrelated object", () {
+      expect(Cron.parse("* * * * * *"), isNot(equals("* * * * * *")));
+    });
+
+    test("identical instance short-circuits the equality check", () {
+      final cron = Cron.parse("* * * * * *");
+      expect(cron == cron, isTrue);
+    });
+
+    test("hashCode is consistent with equality", () {
+      final a = Cron.parse("1 2 3 4 5 6");
+      final b = Cron.parse("1 2 3 4 5 6");
+      expect(a.hashCode, b.hashCode);
+    });
+  });
+
+  group("CronField equality and hashCode", () {
+    test("equal when the formatted representation matches", () {
+      expect(CronFieldValue(5), equals(CronFieldValue(5)));
+    });
+
+    test("not equal for a differing value", () {
+      expect(CronFieldValue(5), isNot(equals(CronFieldValue(6))));
+    });
+
+    test("not equal across differing runtime types", () {
+      expect(CronFieldWildcard(), isNot(equals(CronFieldValue(0))));
+    });
+
+    test("hashCode is consistent with equality", () {
+      expect(CronFieldValue(5).hashCode, CronFieldValue(5).hashCode);
+    });
+  });
+
+  group("SchedulerOutOfReachException", () {
+    test("toString includes the message", () {
+      final exception = SchedulerOutOfReachException("no match found");
+      expect(
+        exception.toString(),
+        "SchedulerOutOfReachException(message: no match found)",
+      );
+    });
+  });
+
   group("Cron.toPrettyString", () {
     test("single minute value", () {
       final cron = Cron.parse("0 30 * * * *");
@@ -457,7 +611,7 @@ void main() {
     });
 
     test("an out-of-range day of week value throws ArgumentError", () {
-      expect(() => Cron.parse("0 0 12 * * 7"), throwsArgumentError);
+      expect(() => Cron.parse("0 0 12 * * 8"), throwsArgumentError);
     });
 
     test("an out-of-range month value throws ArgumentError", () {
@@ -624,6 +778,36 @@ void main() {
         () => _makeL10n(unitNames: const {CronUnitKind.second: "second"}),
         throwsArgumentError,
       );
+    });
+
+    group("fromLocale", () {
+      test("returns german for a 'de' locale", () {
+        expect(
+          CronPrettyStringL10n.fromLocale("de"),
+          CronPrettyStringL10n.german,
+        );
+      });
+
+      test("returns german for a region-qualified 'de_DE' locale", () {
+        expect(
+          CronPrettyStringL10n.fromLocale("de_DE"),
+          CronPrettyStringL10n.german,
+        );
+      });
+
+      test("is case-insensitive", () {
+        expect(
+          CronPrettyStringL10n.fromLocale("DE"),
+          CronPrettyStringL10n.german,
+        );
+      });
+
+      test("falls back to english for an unknown locale", () {
+        expect(
+          CronPrettyStringL10n.fromLocale("fr"),
+          CronPrettyStringL10n.english,
+        );
+      });
     });
   });
 }
