@@ -6,7 +6,7 @@ version: 0.1.0
 repository: https://github.com/JHubi1/scheduler
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.13.1
 
 dependencies:
   meta: ^1.19.0

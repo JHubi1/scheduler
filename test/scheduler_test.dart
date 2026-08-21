@@ -431,27 +431,23 @@ void main() {
         timeout: const Timeout(Duration(seconds: 15)),
       );
 
-      test(
-        "does not assert when processQueueLockAssert is false",
-        () async {
-          final scheduler = Scheduler([EchoTask()]);
-          addTearDown(scheduler.close);
+      test("does not assert when processQueueLockAssert is false", () async {
+        final scheduler = Scheduler([EchoTask()]);
+        addTearDown(scheduler.close);
 
-          Object? caughtError;
-          runZonedGuarded(() {
-            scheduler.invoke<String, String>(
-              EchoTask,
-              "stuck",
-              processQueue: false,
-              processQueueLockAssert: false,
-            );
-          }, (error, stack) => caughtError = error);
+        Object? caughtError;
+        runZonedGuarded(() {
+          scheduler.invoke<String, String>(
+            EchoTask,
+            "stuck",
+            processQueue: false,
+            processQueueLockAssert: false,
+          );
+        }, (error, stack) => caughtError = error);
 
-          await Future.delayed(const Duration(seconds: 6));
-          expect(caughtError, isNull);
-        },
-        timeout: const Timeout(Duration(seconds: 15)),
-      );
+        await Future.delayed(const Duration(seconds: 6));
+        expect(caughtError, isNull);
+      }, timeout: const Timeout(Duration(seconds: 15)));
     });
 
     group("error propagation", () {
@@ -1464,23 +1460,19 @@ void main() {
         );
       });
 
-      test(
-        "recurs the configured number of times, then stops",
-        () async {
-          scheduler.cron<int>(
-            VoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId: "recursTheConfiguredNumberOfTimesThenStops",
-            cronReoccurrences: 2,
-          );
-          expect(scheduler.cronTasks.single.reoccurrencesRemaining, 2);
+      test("recurs the configured number of times, then stops", () async {
+        scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "recursTheConfiguredNumberOfTimesThenStops",
+          cronReoccurrences: 2,
+        );
+        expect(scheduler.cronTasks.single.reoccurrencesRemaining, 2);
 
-          await _waitUntil(() => scheduler.cronTasks.isEmpty);
-          expect(scheduler.cronTasks, isEmpty);
-        },
-        timeout: const Timeout(Duration(seconds: 10)),
-      );
+        await _waitUntil(() => scheduler.cronTasks.isEmpty);
+        expect(scheduler.cronTasks, isEmpty);
+      }, timeout: const Timeout(Duration(seconds: 10)));
 
       test("recurs indefinitely when cronReoccurrences is null", () {
         scheduler.cron<int>(
