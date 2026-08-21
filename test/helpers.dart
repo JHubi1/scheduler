@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+
 import 'package:scheduler/tasks.dart';
 
 /// Simple task that returns its input unchanged.

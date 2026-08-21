@@ -959,14 +959,12 @@ class Scheduler {
   }) async {
     late final Task<I, O> task;
     try {
-      task =
-          tasks.singleWhere(
-                (t) => t.runtimeType == taskType,
-                orElse: () => throw ArgumentError(
-                  "Scheduler does not contain a task of type '$taskType'.",
-                ),
-              )
-              as Task<I, O>;
+      task = tasks.singleWhere(
+        (t) => t.runtimeType == taskType,
+        orElse: () => throw ArgumentError(
+          "Scheduler does not contain a task of type '$taskType'.",
+        ),
+      ) as Task<I, O>;
     } catch (e, s) {
       Error.throwWithStackTrace(castErrorParser(e) ?? e, s);
     }
@@ -1038,14 +1036,12 @@ class Scheduler {
   }) async {
     late final Task<I, O> task;
     try {
-      task =
-          tasks.singleWhere(
-                (t) => t.runtimeType == taskType,
-                orElse: () => throw ArgumentError(
-                  "Scheduler does not contain a task of type '$taskType'.",
-                ),
-              )
-              as Task<I, O>;
+      task = tasks.singleWhere(
+        (t) => t.runtimeType == taskType,
+        orElse: () => throw ArgumentError(
+          "Scheduler does not contain a task of type '$taskType'.",
+        ),
+      ) as Task<I, O>;
     } catch (e, s) {
       Error.throwWithStackTrace(castErrorParser(e) ?? e, s);
     }
@@ -1137,14 +1133,12 @@ class Scheduler {
   }) {
     late final Task<I, void> task;
     try {
-      task =
-          tasks.singleWhere(
-                (t) => t.runtimeType == taskType,
-                orElse: () => throw ArgumentError(
-                  "Scheduler does not contain a task of type '$taskType'.",
-                ),
-              )
-              as Task<I, void>;
+      task = tasks.singleWhere(
+        (t) => t.runtimeType == taskType,
+        orElse: () => throw ArgumentError(
+          "Scheduler does not contain a task of type '$taskType'.",
+        ),
+      ) as Task<I, void>;
     } catch (e, s) {
       Error.throwWithStackTrace(castErrorParser(e) ?? e, s);
     }

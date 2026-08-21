@@ -721,17 +721,14 @@ void main() {
       },
     );
 
-    test(
-      "throws SchedulerOutOfReachException when maxYearsToSearch is too small to find a match",
-      () {
-        final cron = Cron.parse("0 0 29 2 *"); // next leap day is 2028
-        final from = DateTime(2026, 3, 1);
-        expect(
-          () => cron.next(from, maxYearsToSearch: 1),
-          throwsA(isA<SchedulerOutOfReachException>()),
-        );
-      },
-    );
+    test("throws SchedulerOutOfReachException when maxYearsToSearch is too small to find a match", () {
+      final cron = Cron.parse("0 0 29 2 *"); // next leap day is 2028
+      final from = DateTime(2026, 3, 1);
+      expect(
+        () => cron.next(from, maxYearsToSearch: 1),
+        throwsA(isA<SchedulerOutOfReachException>()),
+      );
+    });
   });
 
   group("CronPrettyStringL10n", () {

@@ -242,46 +242,40 @@ void main() {
     });
 
     group("processQueue parameter", () {
-      test(
-        "task is not started and its future stays pending when processQueue is false",
-        () async {
-          final scheduler = Scheduler([EchoTask()]);
-          addTearDown(() => scheduler.close(silent: true));
+      test("task is not started and its future stays pending when processQueue is false", () async {
+        final scheduler = Scheduler([EchoTask()]);
+        addTearDown(() => scheduler.close(silent: true));
 
-          var completed = false;
-          scheduler
-              .invoke<String, String>(
-                EchoTask,
-                "queued",
-                processQueue: false,
-                processQueueLockAssert: false,
-              )
-              .then((_) => completed = true);
+        var completed = false;
+        scheduler
+            .invoke<String, String>(
+              EchoTask,
+              "queued",
+              processQueue: false,
+              processQueueLockAssert: false,
+            )
+            .then((_) => completed = true);
 
-          await Future.delayed(Duration.zero);
-          expect(completed, isFalse);
-          expect(scheduler.running, isEmpty);
-        },
-      );
+        await Future.delayed(Duration.zero);
+        expect(completed, isFalse);
+        expect(scheduler.running, isEmpty);
+      });
 
-      test(
-        "a later invoke with processQueue: true processes previously queued tasks",
-        () async {
-          final scheduler = Scheduler([
-            EchoTask(),
-          ], config: const SchedulerConfig(simultaneousInvocations: 5));
-          addTearDown(scheduler.close);
+      test("a later invoke with processQueue: true processes previously queued tasks", () async {
+        final scheduler = Scheduler([
+          EchoTask(),
+        ], config: const SchedulerConfig(simultaneousInvocations: 5));
+        addTearDown(scheduler.close);
 
-          final queued = scheduler
-              .invoke<String, String>(EchoTask, "queued", processQueue: false)
-              .output;
-          final trigger = scheduler
-              .invoke<String, String>(EchoTask, "trigger")
-              .output;
+        final queued = scheduler
+            .invoke<String, String>(EchoTask, "queued", processQueue: false)
+            .output;
+        final trigger = scheduler
+            .invoke<String, String>(EchoTask, "trigger")
+            .output;
 
-          expect(await Future.wait([queued, trigger]), ["queued", "trigger"]);
-        },
-      );
+        expect(await Future.wait([queued, trigger]), ["queued", "trigger"]);
+      });
 
       test(
         "invokeNamed forwards processQueue: false without starting the task",
@@ -312,30 +306,27 @@ void main() {
         },
       );
 
-      test(
-        "a queued task with processQueue: false is picked up automatically once a slot frees up",
-        () async {
-          final scheduler = Scheduler([
-            DelayedTask(),
-            EchoTask(),
-          ], config: const SchedulerConfig(simultaneousInvocations: 1));
-          addTearDown(scheduler.close);
+      test("a queued task with processQueue: false is picked up automatically once a slot frees up", () async {
+        final scheduler = Scheduler([
+          DelayedTask(),
+          EchoTask(),
+        ], config: const SchedulerConfig(simultaneousInvocations: 1));
+        addTearDown(scheduler.close);
 
-          final blocking = scheduler
-              .invoke<Duration, String>(
-                DelayedTask,
-                const Duration(milliseconds: 100),
-              )
-              .output;
-          await Future.delayed(const Duration(milliseconds: 20));
+        final blocking = scheduler
+            .invoke<Duration, String>(
+              DelayedTask,
+              const Duration(milliseconds: 100),
+            )
+            .output;
+        await Future.delayed(const Duration(milliseconds: 20));
 
-          final queued = scheduler
-              .invoke<String, String>(EchoTask, "later", processQueue: false)
-              .output;
+        final queued = scheduler
+            .invoke<String, String>(EchoTask, "later", processQueue: false)
+            .output;
 
-          expect(await Future.wait([blocking, queued]), ["done", "later"]);
-        },
-      );
+        expect(await Future.wait([blocking, queued]), ["done", "later"]);
+      });
     });
 
     group("queueExpiration", () {
@@ -403,33 +394,29 @@ void main() {
     });
 
     group("processQueueLockAssert", () {
-      test(
-        "asserts if the queue loop is never triggered after processQueue: false",
-        () async {
-          final scheduler = Scheduler([EchoTask()]);
-          addTearDown(scheduler.close);
+      test("asserts if the queue loop is never triggered after processQueue: false", () async {
+        final scheduler = Scheduler([EchoTask()]);
+        addTearDown(scheduler.close);
 
-          Object? caughtError;
-          final done = Completer<void>();
-          runZonedGuarded(
-            () {
-              scheduler.invoke<String, String>(
-                EchoTask,
-                "stuck",
-                processQueue: false,
-              );
-            },
-            (error, stack) {
-              caughtError = error;
-              if (!done.isCompleted) done.complete();
-            },
-          );
+        Object? caughtError;
+        final done = Completer<void>();
+        runZonedGuarded(
+          () {
+            scheduler.invoke<String, String>(
+              EchoTask,
+              "stuck",
+              processQueue: false,
+            );
+          },
+          (error, stack) {
+            caughtError = error;
+            if (!done.isCompleted) done.complete();
+          },
+        );
 
-          await done.future.timeout(const Duration(seconds: 8));
-          expect(caughtError, isA<AssertionError>());
-        },
-        timeout: const Timeout(Duration(seconds: 15)),
-      );
+        await done.future.timeout(const Duration(seconds: 8));
+        expect(caughtError, isA<AssertionError>());
+      }, timeout: const Timeout(Duration(seconds: 15)));
 
       test("does not assert when processQueueLockAssert is false", () async {
         final scheduler = Scheduler([EchoTask()]);
@@ -451,21 +438,18 @@ void main() {
     });
 
     group("error propagation", () {
-      test(
-        "task errors surface through TaskStatus.future, not the invoke() future",
-        () async {
-          final scheduler = Scheduler([FailingTask()]);
-          addTearDown(scheduler.close);
+      test("task errors surface through TaskStatus.future, not the invoke() future", () async {
+        final scheduler = Scheduler([FailingTask()]);
+        addTearDown(scheduler.close);
 
-          final status = await scheduler.invoke<String, String>(
-            FailingTask,
-            "trigger",
-          );
-          final result = await status.future;
-          expect(result.error, isNotNull);
-          expect(result.success, isNull);
-        },
-      );
+        final status = await scheduler.invoke<String, String>(
+          FailingTask,
+          "trigger",
+        );
+        final result = await status.future;
+        expect(result.error, isNotNull);
+        expect(result.success, isNull);
+      });
 
       test("the .output helper rethrows the original task error", () async {
         final scheduler = Scheduler([FailingTask()]);
@@ -478,20 +462,17 @@ void main() {
     });
 
     group("retryOptions", () {
-      test(
-        "a task that fails twice succeeds on the third attempt with default retryOptions",
-        () async {
-          final scheduler = Scheduler([RetryableTask()]);
-          addTearDown(scheduler.close);
+      test("a task that fails twice succeeds on the third attempt with default retryOptions", () async {
+        final scheduler = Scheduler([RetryableTask()]);
+        addTearDown(scheduler.close);
 
-          final status = await scheduler.invoke<String, String>(
-            RetryableTask,
-            "hello",
-          );
-          final result = await status.future;
-          expect(result.success?.output, "hello");
-        },
-      );
+        final status = await scheduler.invoke<String, String>(
+          RetryableTask,
+          "hello",
+        );
+        final result = await status.future;
+        expect(result.success?.output, "hello");
+      });
 
       test(
         "a permanently-failing task exhausts retryOptions.maxAttempts",
@@ -593,34 +574,31 @@ void main() {
     });
 
     group("restorableState / fromRestorableState", () {
-      test(
-        "restorableState only includes invocations from restoration-allowed tasks",
-        () async {
-          final scheduler =
-              Scheduler([
-                  RestorableTask(),
-                  EchoTask(),
-                ], config: const SchedulerConfig(simultaneousInvocations: 1))
-                ..invoke<String, String>(
-                  RestorableTask,
-                  "keep",
-                  processQueue: false,
-                  processQueueLockAssert: false,
-                )
-                ..invoke<String, String>(
-                  EchoTask,
-                  "drop",
-                  processQueue: false,
-                  processQueueLockAssert: false,
-                );
-          addTearDown(() => scheduler.close(silent: true));
+      test("restorableState only includes invocations from restoration-allowed tasks", () async {
+        final scheduler =
+            Scheduler([
+                RestorableTask(),
+                EchoTask(),
+              ], config: const SchedulerConfig(simultaneousInvocations: 1))
+              ..invoke<String, String>(
+                RestorableTask,
+                "keep",
+                processQueue: false,
+                processQueueLockAssert: false,
+              )
+              ..invoke<String, String>(
+                EchoTask,
+                "drop",
+                processQueue: false,
+                processQueueLockAssert: false,
+              );
+        addTearDown(() => scheduler.close(silent: true));
 
-          final state = scheduler.restorableState();
-          final invocations = state["invocations"]! as List;
-          expect(invocations, hasLength(1));
-          expect((invocations.single! as Map)["task"], "restorableTask");
-        },
-      );
+        final state = scheduler.restorableState();
+        final invocations = state["invocations"]! as List;
+        expect(invocations, hasLength(1));
+        expect((invocations.single! as Map)["task"], "restorableTask");
+      });
 
       test(
         "fromRestorableState restores queued invocations and runs them",
@@ -779,25 +757,22 @@ void main() {
         );
       });
 
-      test(
-        "fromRestorableState throws ArgumentError for a malformed invocation entry",
-        () {
-          final tasks = [RestorableTask()];
-          final state = {
-            "config": const SchedulerConfig().toJson(),
-            "taskIds": ["restorableTask"],
-            "invocations": [
-              {"task": "restorableTask"},
-            ],
-            "waitList": <Object?>[],
-          };
+      test("fromRestorableState throws ArgumentError for a malformed invocation entry", () {
+        final tasks = [RestorableTask()];
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": [
+            {"task": "restorableTask"},
+          ],
+          "waitList": <Object?>[],
+        };
 
-          expect(
-            () => Scheduler.fromRestorableState(tasks, state),
-            throwsArgumentError,
-          );
-        },
-      );
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
+      });
 
       test(
         "fromRestorableState throws ArgumentError for an invalid config",
@@ -1549,38 +1524,32 @@ void main() {
         );
       });
 
-      test(
-        "stops recurring once the scheduler is closed while the cron task is waiting",
-        () async {
-          scheduler.cron<int>(
-            VoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId:
-                "stopsRecurringOnceTheSchedulerIsClosedWhileTheCronTaskIsWaiting",
-          );
-          expect(scheduler.cronTasks, hasLength(1));
+      test("stops recurring once the scheduler is closed while the cron task is waiting", () async {
+        scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId:
+              "stopsRecurringOnceTheSchedulerIsClosedWhileTheCronTaskIsWaiting",
+        );
+        expect(scheduler.cronTasks, hasLength(1));
 
-          await scheduler.close(silent: true);
-          expect(scheduler.queueWaitList, isEmpty);
-        },
-      );
+        await scheduler.close(silent: true);
+        expect(scheduler.queueWaitList, isEmpty);
+      });
 
-      test(
-        "allowRestoration defaults to false and is excluded from restorableState",
-        () {
-          scheduler.cron<int>(
-            VoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId:
-                "allowRestorationDefaultsToFalseAndIsExcludedFromRestorableState",
-          );
+      test("allowRestoration defaults to false and is excluded from restorableState", () {
+        scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId:
+              "allowRestorationDefaultsToFalseAndIsExcludedFromRestorableState",
+        );
 
-          final state = scheduler.restorableState();
-          expect(state["waitList"], isEmpty);
-        },
-      );
+        final state = scheduler.restorableState();
+        expect(state["waitList"], isEmpty);
+      });
     });
 
     group("CronTaskStatus", () {
@@ -1612,23 +1581,19 @@ void main() {
         expect(status.isRunning, isFalse);
       });
 
-      test(
-        "isRunning becomes false once all reoccurrences complete, without calling cancel()",
-        () async {
-          final status = scheduler.cron<int>(
-            VoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId: "isRunningBecomesFalseOnceReoccurrencesComplete",
-            cronReoccurrences: 1,
-          );
+      test("isRunning becomes false once all reoccurrences complete, without calling cancel()", () async {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "isRunningBecomesFalseOnceReoccurrencesComplete",
+          cronReoccurrences: 1,
+        );
 
-          expect(status.isRunning, isTrue);
-          await _waitUntil(() => !status.isRunning);
-          expect(status.isRunning, isFalse);
-        },
-        timeout: const Timeout(Duration(seconds: 10)),
-      );
+        expect(status.isRunning, isTrue);
+        await _waitUntil(() => !status.isRunning);
+        expect(status.isRunning, isFalse);
+      }, timeout: const Timeout(Duration(seconds: 10)));
 
       test(
         "reoccurrencesRemaining is null when cronReoccurrences is unset",
@@ -1665,28 +1630,25 @@ void main() {
         timeout: const Timeout(Duration(seconds: 10)),
       );
 
-      test(
-        "nextRun returns an upcoming DateTime while scheduled, and null after cancel()",
-        () {
-          final before = DateTime.now();
-          final status = scheduler.cron<int>(
-            VoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId: "nextRunReturnsAnUpcomingDateTimeAndNullAfterCancel",
-          );
+      test("nextRun returns an upcoming DateTime while scheduled, and null after cancel()", () {
+        final before = DateTime.now();
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "nextRunReturnsAnUpcomingDateTimeAndNullAfterCancel",
+        );
 
-          final nextRun = status.nextRun;
-          expect(nextRun, isNotNull);
-          expect(
-            nextRun!.isBefore(before.add(const Duration(seconds: 2))),
-            isTrue,
-          );
+        final nextRun = status.nextRun;
+        expect(nextRun, isNotNull);
+        expect(
+          nextRun!.isBefore(before.add(const Duration(seconds: 2))),
+          isTrue,
+        );
 
-          status.cancel();
-          expect(status.nextRun, isNull);
-        },
-      );
+        status.cancel();
+        expect(status.nextRun, isNull);
+      });
 
       test("cancel() unblocks the cronId so it can be reused", () {
         final status = scheduler.cron<int>(
@@ -1765,55 +1727,48 @@ void main() {
         },
       );
 
-      test(
-        "cancel() stops future reoccurrences even while the current invocation is still running",
-        () async {
-          final slowScheduler = Scheduler([SlowVoidTask()]);
-          addTearDown(() => slowScheduler.close(silent: true));
+      test("cancel() stops future reoccurrences even while the current invocation is still running", () async {
+        final slowScheduler = Scheduler([SlowVoidTask()]);
+        addTearDown(() => slowScheduler.close(silent: true));
 
-          final status = slowScheduler.cron<int>(
-            SlowVoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId: "cancelStopsReoccurrencesWhileTheInvocationIsRunning",
-          );
+        final status = slowScheduler.cron<int>(
+          SlowVoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "cancelStopsReoccurrencesWhileTheInvocationIsRunning",
+        );
 
-          await _waitUntil(
-            () => slowScheduler.runningInvocations.values.any(
-              (s) => s.task.id == "slowVoidTask",
-            ),
-          );
-          status.cancel();
-          expect(status.isRunning, isFalse);
+        await _waitUntil(
+          () => slowScheduler.runningInvocations.values.any(
+            (s) => s.task.id == "slowVoidTask",
+          ),
+        );
+        status.cancel();
+        expect(status.isRunning, isFalse);
 
-          await _waitUntil(() => slowScheduler.runningInvocations.isEmpty);
-          // Give a would-be (buggy) reschedule a chance to fire.
-          await Future.delayed(const Duration(milliseconds: 1500));
+        await _waitUntil(() => slowScheduler.runningInvocations.isEmpty);
+        // Give a would-be (buggy) reschedule a chance to fire.
+        await Future.delayed(const Duration(milliseconds: 1500));
 
-          expect(slowScheduler.cronTasks, isEmpty);
-        },
-        timeout: const Timeout(Duration(seconds: 10)),
-      );
+        expect(slowScheduler.cronTasks, isEmpty);
+      }, timeout: const Timeout(Duration(seconds: 10)));
 
-      test(
-        "toString() includes cronId, isRunning, reoccurrencesRemaining and nextRun",
-        () {
-          final status = scheduler.cron<int>(
-            VoidTask,
-            1,
-            Cron.parse("* * * * * *"),
-            cronId: "toStringIncludesAllFields",
-            cronReoccurrences: 1,
-          );
+      test("toString() includes cronId, isRunning, reoccurrencesRemaining and nextRun", () {
+        final status = scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "toStringIncludesAllFields",
+          cronReoccurrences: 1,
+        );
 
-          final output = status.toString();
-          expect(output, startsWith("CronTaskStatus("));
-          expect(output, contains("cronId: toStringIncludesAllFields"));
-          expect(output, contains("isRunning: true"));
-          expect(output, contains("reoccurrencesRemaining: 1"));
-          expect(output, contains("nextRun:"));
-        },
-      );
+        final output = status.toString();
+        expect(output, startsWith("CronTaskStatus("));
+        expect(output, contains("cronId: toStringIncludesAllFields"));
+        expect(output, contains("isRunning: true"));
+        expect(output, contains("reoccurrencesRemaining: 1"));
+        expect(output, contains("nextRun:"));
+      });
     });
   });
 }

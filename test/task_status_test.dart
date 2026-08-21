@@ -244,20 +244,17 @@ void main() {
   });
 
   group("TaskStatus.cancel", () {
-    test(
-      "signals cancellation to the running isolate via TaskProgressCommunicator.isClosed",
-      () async {
-        final bundle = TaskBundle([CancellableTask()], startCulling: false);
-        addTearDown(bundle.close);
+    test("signals cancellation to the running isolate via TaskProgressCommunicator.isClosed", () async {
+      final bundle = TaskBundle([CancellableTask()], startCulling: false);
+      addTearDown(bundle.close);
 
-        final status = await bundle.invoke<int, String>(CancellableTask, 50);
-        await Future.delayed(const Duration(milliseconds: 40));
-        status.cancel();
+      final status = await bundle.invoke<int, String>(CancellableTask, 50);
+      await Future.delayed(const Duration(milliseconds: 40));
+      status.cancel();
 
-        final result = await status.future;
-        expect(result.success?.output, "cancelled");
-      },
-    );
+      final result = await status.future;
+      expect(result.success?.output, "cancelled");
+    });
 
     test(
       "has no effect if called after the invocation already completed",

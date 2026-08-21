@@ -8,6 +8,7 @@ import 'dart:isolate' hide RemoteError;
 import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
 import 'package:retry/retry.dart';
+
 import 'progress_snatcher.dart';
 import 'remote_exception.dart';
 import 'retry_options.dart';
@@ -469,11 +470,9 @@ final class TaskStatus<I extends Object?, O extends Object?> {
     final tmpId = --bundle._tmpInvocationIdCounter;
     bundle._runningInvocations[tmpId] = this;
 
-    var instance =
-        bundle._running.singleWhereOrNull(
-              (i) => i._task == task && !i._closed.isCompleted,
-            )
-            as TaskInstance<I, O>?;
+    var instance = bundle._running.singleWhereOrNull(
+      (i) => i._task == task && !i._closed.isCompleted,
+    ) as TaskInstance<I, O>?;
     if (instance == null) {
       instance = await task.spawn();
       bundle._running.add(instance);
@@ -1250,14 +1249,12 @@ final class TaskBundle {
 
     late final Task<I, O> task;
     try {
-      task =
-          tasks.singleWhere(
-                (t) => t.runtimeType == taskType,
-                orElse: () => throw ArgumentError(
-                  "TaskBundle does not contain a task of type '$taskType'.",
-                ),
-              )
-              as Task<I, O>;
+      task = tasks.singleWhere(
+        (t) => t.runtimeType == taskType,
+        orElse: () => throw ArgumentError(
+          "TaskBundle does not contain a task of type '$taskType'.",
+        ),
+      ) as Task<I, O>;
     } catch (e, s) {
       Error.throwWithStackTrace(castErrorParser(e) ?? e, s);
     }

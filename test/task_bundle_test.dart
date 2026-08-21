@@ -130,28 +130,25 @@ void main() {
         expect(bundle.isCulling, isFalse);
       });
 
-      test(
-        "suspect timer is reset when an instance is active during a culling tick",
-        () async {
-          final bundle = TaskBundle([DelayedTask()], startCulling: false);
-          addTearDown(bundle.close);
+      test("suspect timer is reset when an instance is active during a culling tick", () async {
+        final bundle = TaskBundle([DelayedTask()], startCulling: false);
+        addTearDown(bundle.close);
 
-          bundle.startCulling(
-            interval: const Duration(milliseconds: 15),
-            idleTime: const Duration(milliseconds: 60),
-          );
+        bundle.startCulling(
+          interval: const Duration(milliseconds: 15),
+          idleTime: const Duration(milliseconds: 60),
+        );
 
-          await bundle
-              .invoke<Duration, String>(
-                DelayedTask,
-                const Duration(milliseconds: 50),
-              )
-              .output;
+        await bundle
+            .invoke<Duration, String>(
+              DelayedTask,
+              const Duration(milliseconds: 50),
+            )
+            .output;
 
-          bundle.stopCulling();
-          expect(bundle.running, contains("delayedTask"));
-        },
-      );
+        bundle.stopCulling();
+        expect(bundle.running, contains("delayedTask"));
+      });
 
       test("task can be reinvoked after idle instance is culled", () async {
         final bundle = TaskBundle([EchoTask()], startCulling: false);

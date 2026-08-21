@@ -135,31 +135,28 @@ void main() {
     });
 
     group("lastProgress", () {
-      test(
-        "holds the latest progress per invocation and is cleared when the task completes",
-        () async {
-          final snatcher = ProgressSnatcher.instance;
-          final instance = await ProgressTask().spawn();
-          addTearDown(instance.close);
+      test("holds the latest progress per invocation and is cleared when the task completes", () async {
+        final snatcher = ProgressSnatcher.instance;
+        final instance = await ProgressTask().spawn();
+        addTearDown(instance.close);
 
-          Map<int, TaskProgress>? snapshot;
-          snatcher.addListener((event) {
-            if (event.$2 != null && snapshot == null) {
-              snapshot = Map.of(snatcher.lastProgress);
-            }
-          });
+        Map<int, TaskProgress>? snapshot;
+        snatcher.addListener((event) {
+          if (event.$2 != null && snapshot == null) {
+            snapshot = Map.of(snatcher.lastProgress);
+          }
+        });
 
-          final (_, future) = instance.invoke(
-            3,
-            progressBroadcaster: snatcher.auto,
-          );
-          await future;
+        final (_, future) = instance.invoke(
+          3,
+          progressBroadcaster: snatcher.auto,
+        );
+        await future;
 
-          expect(snapshot, isNotNull);
-          expect(snapshot!.values.first.progress, isNonNegative);
-          expect(snatcher.lastProgress, isEmpty);
-        },
-      );
+        expect(snapshot, isNotNull);
+        expect(snapshot!.values.first.progress, isNonNegative);
+        expect(snatcher.lastProgress, isEmpty);
+      });
     });
 
     group("close()", () {
@@ -168,22 +165,19 @@ void main() {
         expect(snatcher.close, returnsNormally);
       });
 
-      test(
-        "close() removes broadcaster listeners so no StateError fires mid-flight",
-        () async {
-          final snatcher = ProgressSnatcher.instance;
-          final instance = await ProgressTask().spawn();
-          addTearDown(instance.close);
+      test("close() removes broadcaster listeners so no StateError fires mid-flight", () async {
+        final snatcher = ProgressSnatcher.instance;
+        final instance = await ProgressTask().spawn();
+        addTearDown(instance.close);
 
-          final (_, future) = instance.invoke(
-            3,
-            progressBroadcaster: snatcher.auto,
-          );
+        final (_, future) = instance.invoke(
+          3,
+          progressBroadcaster: snatcher.auto,
+        );
 
-          snatcher.close();
-          expect(await future, 3);
-        },
-      );
+        snatcher.close();
+        expect(await future, 3);
+      });
     });
   });
 

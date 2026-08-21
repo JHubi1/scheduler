@@ -224,19 +224,16 @@ void main() {
       expect(await future, "hello");
     });
 
-    test(
-      "multiple concurrent invocations on an allowSimultaneous task complete correctly",
-      () async {
-        final instance = await EchoTask().spawn();
-        addTearDown(instance.close);
+    test("multiple concurrent invocations on an allowSimultaneous task complete correctly", () async {
+      final instance = await EchoTask().spawn();
+      addTearDown(instance.close);
 
-        final (_, f1) = instance.invoke("a");
-        final (_, f2) = instance.invoke("b");
-        final (_, f3) = instance.invoke("c");
+      final (_, f1) = instance.invoke("a");
+      final (_, f2) = instance.invoke("b");
+      final (_, f3) = instance.invoke("c");
 
-        expect(await Future.wait([f1, f2, f3]), ["a", "b", "c"]);
-      },
-    );
+      expect(await Future.wait([f1, f2, f3]), ["a", "b", "c"]);
+    });
 
     test("invoke propagates task errors as RemoteException", () async {
       final instance = await FailingTask().spawn();
