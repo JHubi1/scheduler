@@ -1,6 +1,8 @@
 import 'package:scheduler/scheduler.dart';
 import 'package:test/test.dart';
 
+import 'helpers.dart';
+
 void main() {
   group("SchedulerConfig", () {
     test("simultaneousInvocations defaults to 5", () {
@@ -64,6 +66,41 @@ void main() {
         expect(copy.cullingInterval, const Duration(seconds: 1));
         expect(copy.cullingIdle, config.cullingIdle);
       });
+    });
+
+    group("validation", () {
+      test(
+        "throws ArgumentError for a non-positive simultaneousInvocations",
+        () {
+          expect(
+            () => Scheduler([
+              EchoTask(),
+            ], config: const SchedulerConfig(simultaneousInvocations: 0)),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test("throws ArgumentError for a non-positive cullingInterval", () {
+        expect(
+          () => Scheduler([
+            EchoTask(),
+          ], config: const SchedulerConfig(cullingInterval: Duration.zero)),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        "throws ArgumentError when cullingIdle is less than cullingInterval",
+        () {
+          expect(
+            () => Scheduler([
+              EchoTask(),
+            ], config: const SchedulerConfig(cullingIdle: Duration.zero)),
+            throwsArgumentError,
+          );
+        },
+      );
     });
   });
 }

@@ -285,7 +285,7 @@ final class TaskProgressBroadcaster {
   }
 }
 
-final class _TaskStatusResultCapsule<I extends Object, O extends Object> {
+final class _TaskStatusResultCapsule<I extends Object?, O extends Object?> {
   TaskResult<I, O>? _output;
   TaskResult<I, O>? get output => _output;
   bool get isCompleted => _output != null;
@@ -296,7 +296,8 @@ final class _TaskStatusResultCapsule<I extends Object, O extends Object> {
   }
 }
 
-extension TaskStatusFutureExtension<I extends Object, O extends Object>
+/// Helpers for working with [TaskStatus] futures.
+extension TaskStatusFutureExtension<I extends Object?, O extends Object?>
     on Future<TaskStatus<I, O>> {
   Future<TaskResult<I, O>> get result async => (await this).future;
   Future<TaskResultSuccess<I, O>?> get success async => (await result).success;
@@ -304,7 +305,15 @@ extension TaskStatusFutureExtension<I extends Object, O extends Object>
   Future<O> get output async => (await this).output;
 }
 
-final class TaskStatus<I extends Object, O extends Object> {
+/// A class that represents the status of a task invocation.
+/// 
+/// The [TaskStatus] class contains information about the task invocation, such
+/// as the invocation id, the task, the progress, and the result of the
+/// invocation.
+/// 
+/// This class is the primary way to interact with a task invocation, and to get
+/// information about its progress and result.
+final class TaskStatus<I extends Object?, O extends Object?> {
   late final int invocationId;
   late final Task<I, O> task;
   late final TaskProgressBroadcaster progress;
@@ -378,7 +387,7 @@ final class TaskStatus<I extends Object, O extends Object> {
   }
 
   TaskStatus._() : _result = _TaskStatusResultCapsule<I, O>();
-  static Future<TaskStatus<I, O>> _create<I extends Object, O extends Object>(
+  static Future<TaskStatus<I, O>> _create<I extends Object?, O extends Object?>(
     Task<I, O> task,
     I input, {
     required TaskBundle bundle,
@@ -516,7 +525,7 @@ final class TaskStatus<I extends Object, O extends Object> {
 ///
 /// Use [success] and [error] for quick access to the success or error result.
 /// Both will return `null` if the result is not of the respective type.
-sealed class TaskResult<I extends Object, O extends Object> {
+sealed class TaskResult<I extends Object?, O extends Object?> {
   final DateTime? startTime;
 
   TaskResult._({required this.startTime});
@@ -538,7 +547,9 @@ sealed class TaskResult<I extends Object, O extends Object> {
   }
 }
 
-final class TaskResultSuccess<I extends Object, O extends Object>
+/// A class that represents the result of a task invocation that completed
+/// successfully.
+final class TaskResultSuccess<I extends Object?, O extends Object?>
     extends TaskResult<I, O> {
   final O output;
   final DateTime? endTime;
@@ -570,7 +581,9 @@ final class TaskResultSuccess<I extends Object, O extends Object>
   }
 }
 
-final class TaskResultError<I extends Object, O extends Object>
+/// A class that represents the result of a task invocation that resulted in an
+/// error or exception.
+final class TaskResultError<I extends Object?, O extends Object?>
     extends TaskResult<I, O> {
   final Object exception;
   final StackTrace? stackTrace;
@@ -613,6 +626,7 @@ final class TaskResultError<I extends Object, O extends Object>
   }
 }
 
+/// A class that represents the metadata of a task.
 class TaskMetadata {
   final int? priority;
   final String? version;
@@ -686,7 +700,25 @@ class TaskMetadata {
 /// while it is running and should be able to run again after being closed. A
 /// corrupted state from the last should be recovered in the following run. See
 /// [allowRestoration] for more information.
-abstract class Task<I extends Object, O extends Object> {
+///
+/// ---
+///
+/// When defining a task with no input or output, or with only one of them, you
+/// use `Null` as input or output type, that's the safest option. For output,
+/// `void` could be used as well:
+///
+/// ```dart
+/// class MyTask extends Task<Null, Null> {
+/// // or alternatively
+/// class MyTask extends Task<Null, void> {
+/// ```
+///
+/// Using `void` as input type works during compile time, but because there's no
+/// way to create a real `void` value in Dart, you'd normally have to pass
+/// `null` as input value. This does not work though as Scheduler tries to keep
+/// everything type-safe, and because `null` is not a `void`, it will throw a
+/// runtime error.
+abstract class Task<I extends Object?, O extends Object?> {
   bool _closed = false;
   final Map<int, bool> _invocationClosed = {};
 
@@ -774,17 +806,19 @@ abstract class Task<I extends Object, O extends Object> {
   TaskMetadata get metadataObject => TaskMetadata._fromMap(metadata);
 
   Task() {
-    if (!RegExp(r"^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$").hasMatch(id)) {
+    if (!kCamelCasePattern.hasMatch(id)) {
       throw ArgumentError("Task id must be in camelCase format.", "id");
+    } else if (displayName != null && displayName!.isEmpty) {
+      throw ArgumentError(
+        "Task display name must be non-empty if provided.",
+        "displayName",
+      );
+    } else if (metadata.values.any((value) => value.isEmpty)) {
+      throw ArgumentError(
+        "Task metadata values must be non-empty if provided.",
+        "metadata",
+      );
     }
-    assert(
-      displayName == null || displayName!.isNotEmpty,
-      "Task display name must be non-empty if provided.",
-    );
-    assert(
-      metadata.values.every((value) => value.isNotEmpty),
-      "Task metadata values must be non-empty if provided.",
-    );
   }
 
   /// Creates a new instance of the task in a separate isolate.
@@ -909,7 +943,7 @@ abstract class Task<I extends Object, O extends Object> {
   int get hashCode => id.hashCode;
 }
 
-final class TaskInstance<I extends Object, O extends Object> {
+final class TaskInstance<I extends Object?, O extends Object?> {
   final Completer<void> _closed = Completer<void>.sync();
   bool _closingProcess = false;
   final Map<int, Completer<O>> _activeRequests = {};
@@ -1004,7 +1038,7 @@ final class TaskInstance<I extends Object, O extends Object> {
       return;
     }
 
-    final (int id, Object response) = message as (int, Object);
+    final (id, response) = message as (int, dynamic);
     if (!_activeRequests.containsKey(id)) return;
     final completer = _activeRequests.remove(id)!;
     _activeProgressBroadcasters.remove(id)?._close();
@@ -1039,8 +1073,8 @@ final class TaskInstance<I extends Object, O extends Object> {
   ///
   /// Note that this method fill kill the whole isolate, meaning other instances
   /// will become unusable as well.
-  Future<void> close({bool silent = false}) async {
-    if (!_closed.isCompleted) {
+  Future<void> close({bool silent = false, bool kill = false}) async {
+    if (!_closed.isCompleted && !kill) {
       _closingProcess = true;
       _commands.send("shutdown");
       await _closed.future.timeout(Duration(seconds: 10), onTimeout: () {});
@@ -1096,11 +1130,12 @@ final class TaskBundle {
   int _tmpInvocationIdCounter = 0;
 
   TaskBundle(Iterable<Task> tasks, {bool startCulling = true})
-    : assert(
-        tasks.toSet().length == tasks.length,
+    : tasks = Set.unmodifiable(tasks.toSet()) {
+    if (tasks.toSet().length != tasks.length) {
+      throw ArgumentError(
         "TaskBundle must not contain tasks with duplicate ids.",
-      ),
-      tasks = Set.unmodifiable(tasks.toSet()) {
+      );
+    }
     if (startCulling) this.startCulling();
   }
 
@@ -1111,16 +1146,13 @@ final class TaskBundle {
   /// [ArgumentError].
   ///
   /// See [invoke] for more information about the parameters.
-  Future<TaskStatus<I, O>> invokeNamed<I extends Object, O extends Object>(
+  Future<TaskStatus<I, O>> invokeNamed<I extends Object?, O extends Object?>(
     String taskId,
     I input, {
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
     void Function(int id)? invocationId,
     RetryOptions? retryOptions,
   }) async {
-    if (_closed) {
-      throw StateError("Cannot invoke tasks on a closed TaskBundle.");
-    }
     if (!tasks.any((t) => t.id == taskId)) {
       throw ArgumentError(
         "TaskBundle does not contain a task with id '$taskId'.",
@@ -1171,7 +1203,7 @@ final class TaskBundle {
   /// ```dart
   /// final result = TaskBundle([MyTask()]).invoke(MyTask, "input");
   /// ```
-  Future<TaskStatus<I, O>> invoke<I extends Object, O extends Object>(
+  Future<TaskStatus<I, O>> invoke<I extends Object?, O extends Object?>(
     Type taskType,
     I input, {
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
@@ -1182,14 +1214,19 @@ final class TaskBundle {
       throw StateError("Cannot invoke tasks on a closed TaskBundle.");
     }
 
-    final task =
-        tasks.singleWhere(
-              (t) => t.runtimeType == taskType,
-              orElse: () => throw ArgumentError(
-                "TaskBundle does not contain a task of type '$taskType'.",
-              ),
-            )
-            as Task<I, O>;
+    late final Task<I, O> task;
+    try {
+      task =
+          tasks.singleWhere(
+                (t) => t.runtimeType == taskType,
+                orElse: () => throw ArgumentError(
+                  "TaskBundle does not contain a task of type '$taskType'.",
+                ),
+              )
+              as Task<I, O>;
+    } catch (e, s) {
+      Error.throwWithStackTrace(castErrorParser(e) ?? e, s);
+    }
     if (!task.allowSimultaneous &&
         _runningInvocations.values.any((i) => i.task == task)) {
       throw StateError(
@@ -1217,7 +1254,7 @@ final class TaskBundle {
 
   /// Closes all running task instances in the bundle and terminates their
   /// isolates.
-  Future<void> close({bool silent = false}) async {
+  Future<void> close({bool silent = false, bool kill = false}) async {
     if (_closed) return;
     _closed = true;
 
@@ -1226,7 +1263,7 @@ final class TaskBundle {
       await subscription.cancel();
     }
     for (final instance in List.of(_running)) {
-      await instance.close(silent: silent);
+      await instance.close(silent: silent, kill: kill);
     }
     _update.close();
   }

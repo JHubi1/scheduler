@@ -1,18 +1,24 @@
 import 'package:scheduler/src/cron.dart';
 import 'package:test/test.dart';
 
-CronPrettyStringL10n _makeL10n({List<String>? weekdays, List<String>? months}) {
+CronPrettyStringL10n _makeL10n({
+  List<String>? weekdays,
+  List<String>? months,
+  Map<CronUnitKind, String>? every,
+  Map<CronUnitKind, String>? of,
+  Map<CronUnitKind, String>? unitNames,
+}) {
   return CronPrettyStringL10n(
     andOxfordComma: true,
     and: "and",
     at: "At",
     from: "from",
     through: "through",
-    every: (_) => "every",
-    of: (_) => "of",
+    every: every ?? {for (final k in CronUnitKind.values) k: "every"},
+    of: of ?? {for (final k in CronUnitKind.values) k: "of"},
     past: "past",
     on: (_) => "on",
-    $in: "in",
+    inWord: "in",
     weekdays:
         weekdays ??
         const [
@@ -25,12 +31,16 @@ CronPrettyStringL10n _makeL10n({List<String>? weekdays, List<String>? months}) {
           "Saturday",
         ],
     months: months ?? List.generate(12, (i) => "Month${i + 1}"),
-    second: "second",
-    minute: "minute",
-    hour: "hour",
-    dayOfMonth: "day of the month",
-    month: "month",
-    dayOfWeek: "day of the week",
+    unitNames:
+        unitNames ??
+        const {
+          CronUnitKind.second: "second",
+          CronUnitKind.minute: "minute",
+          CronUnitKind.hour: "hour",
+          CronUnitKind.dayOfMonth: "day of the month",
+          CronUnitKind.month: "month",
+          CronUnitKind.dayOfWeek: "day of the week",
+        },
     ordinalFormatter: (step) => "${step}th",
   );
 }
@@ -93,7 +103,7 @@ void main() {
     });
 
     test("wildcard formats as '*'", () {
-      expect(CronFieldWildcard("*").format(), "*");
+      expect(CronFieldWildcard().format(), "*");
     });
 
     test("list joins fields with commas", () {
@@ -114,65 +124,50 @@ void main() {
   });
 
   group("CronField.copyWith", () {
-    test("re-parses with a new raw value", () {
-      final field = CronFieldValue("5", 5);
-      final updated = field.copyWith(raw: "10") as CronFieldValue;
+    test("creates a copy with a new value", () {
+      final field = CronFieldValue(5);
+      final updated = field.copyWith(value: 10);
       expect(updated.value, 10);
     });
 
-    test("re-parses the existing raw value when none is given", () {
-      final field = CronFieldValue("5", 5);
-      final updated = field.copyWith() as CronFieldValue;
+    test("keeps the existing value when none is given", () {
+      final field = CronFieldValue(5);
+      final updated = field.copyWith();
       expect(updated.value, 5);
-      expect(updated.raw, "5");
     });
   });
 
   group("CronField.toString", () {
     test("CronFieldWildcard", () {
-      expect(CronFieldWildcard("*").toString(), "CronFieldWildcard(raw: *)");
+      expect(CronFieldWildcard().toString(), "CronFieldWildcard()");
     });
 
     test("CronFieldValue", () {
-      expect(
-        CronFieldValue("5", 5).toString(),
-        "CronFieldValue(raw: 5, value: 5)",
-      );
+      expect(CronFieldValue(5).toString(), "CronFieldValue(value: 5)");
     });
 
     test("CronFieldList", () {
-      final list = CronFieldList("1,2", [
-        CronFieldValue("1", 1),
-        CronFieldValue("2", 2),
-      ]);
-      expect(list.toString(), contains("CronFieldList(raw: 1,2"));
+      final list = CronFieldList([CronFieldValue(1), CronFieldValue(2)]);
+      expect(list.toString(), contains("CronFieldList("));
       expect(list.toString(), contains("fields:"));
     });
 
     test("CronFieldRange", () {
-      final range = CronFieldRange(
-        "1-5",
-        CronFieldValue("1", 1),
-        CronFieldValue("5", 5),
-      );
-      expect(range.toString(), contains("CronFieldRange(raw: 1-5"));
+      final range = CronFieldRange(CronFieldValue(1), CronFieldValue(5));
+      expect(range.toString(), contains("CronFieldRange("));
       expect(range.toString(), contains("start:"));
       expect(range.toString(), contains("end:"));
     });
 
     test("CronFieldStep", () {
-      final step = CronFieldStep("*/5", CronFieldWildcard("*"), 5);
-      expect(step.toString(), contains("CronFieldStep(raw: */5"));
+      final step = CronFieldStep(CronFieldWildcard(), 5);
+      expect(step.toString(), contains("CronFieldStep("));
       expect(step.toString(), contains("base:"));
       expect(step.toString(), contains("step: 5"));
     });
   });
 
   group("CronField construction errors", () {
-    test("empty raw string throws ArgumentError", () {
-      expect(() => CronFieldValue("", 5), throwsArgumentError);
-    });
-
     test("empty field within a list throws ArgumentError", () {
       expect(() => Cron.parse("* , * * * *"), throwsArgumentError);
     });
@@ -199,46 +194,85 @@ void main() {
     });
   });
 
-  group("CronField invalid combinations (fail their assertions)", () {
+  group("Cron() validates field ranges when constructed directly", () {
+    // Cron.parse validates each leaf value while parsing, so these
+    // out-of-range values can only surface via the Cron() constructor itself,
+    // which re-validates every field tree (including lists/ranges/steps).
+    test("a CronFieldList with an out-of-range value throws ArgumentError", () {
+      expect(
+        () => Cron(
+          second: CronFieldValue(0),
+          minute: CronFieldValue(0),
+          hour: CronFieldList([CronFieldValue(0), CronFieldValue(99)]),
+          dayOfMonth: CronFieldValue(1),
+          month: CronFieldValue(1),
+          dayOfWeek: CronFieldWildcard(),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      "a CronFieldRange with an out-of-range bound throws ArgumentError",
+      () {
+        expect(
+          () => Cron(
+            second: CronFieldValue(0),
+            minute: CronFieldValue(0),
+            hour: CronFieldRange(CronFieldValue(0), CronFieldValue(99)),
+            dayOfMonth: CronFieldValue(1),
+            month: CronFieldValue(1),
+            dayOfWeek: CronFieldWildcard(),
+          ),
+          throwsArgumentError,
+        );
+      },
+    );
+
+    test("a CronFieldStep with an out-of-range base throws ArgumentError", () {
+      expect(
+        () => Cron(
+          second: CronFieldValue(0),
+          minute: CronFieldValue(0),
+          hour: CronFieldStep(
+            CronFieldRange(CronFieldValue(0), CronFieldValue(99)),
+            2,
+          ),
+          dayOfMonth: CronFieldValue(1),
+          month: CronFieldValue(1),
+          dayOfWeek: CronFieldWildcard(),
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group("CronField invalid combinations", () {
     test("negative CronFieldValue", () {
-      expect(() => CronFieldValue("-1", -1), throwsA(isA<AssertionError>()));
+      expect(() => CronFieldValue(-1), throwsArgumentError);
     });
 
     test("CronFieldRange requires CronFieldValue start/end", () {
       expect(
-        () => CronFieldRange(
-          "*-5",
-          CronFieldWildcard("*"),
-          CronFieldValue("5", 5),
-        ),
-        throwsA(isA<AssertionError>()),
+        () => CronFieldRange(CronFieldWildcard(), CronFieldValue(5)),
+        throwsArgumentError,
       );
     });
 
     test("CronFieldRange requires start < end", () {
       expect(
-        () => CronFieldRange(
-          "5-1",
-          CronFieldValue("5", 5),
-          CronFieldValue("1", 1),
-        ),
-        throwsA(isA<AssertionError>()),
+        () => CronFieldRange(CronFieldValue(5), CronFieldValue(1)),
+        throwsArgumentError,
       );
     });
 
     test("CronFieldStep requires a wildcard or range base", () {
-      expect(
-        () => CronFieldStep("5/2", CronFieldValue("5", 5), 2),
-        throwsA(isA<AssertionError>()),
-      );
+      expect(() => CronFieldStep(CronFieldValue(5), 2), throwsArgumentError);
     });
 
     test("CronFieldStep requires a positive step", () {
-      expect(
-        () => CronFieldStep("*/0", CronFieldWildcard("*"), 0),
-        throwsA(isA<AssertionError>()),
-      );
-      expect(() => Cron.parse("*/0 * * * * *"), throwsA(isA<AssertionError>()));
+      expect(() => CronFieldStep(CronFieldWildcard(), 0), throwsArgumentError);
+      expect(() => Cron.parse("*/0 * * * * *"), throwsArgumentError);
     });
   });
 
@@ -307,7 +341,7 @@ void main() {
   group("Cron.copyWith", () {
     test("replaces only the given fields", () {
       final cron = Cron.parse("0 0 * * *");
-      final updated = cron.copyWith(hour: CronFieldValue("5", 5));
+      final updated = cron.copyWith(hour: CronFieldValue(5));
       expect(updated.format(), "0 0 5 * * *");
       expect(updated.minute, same(cron.minute));
       expect(updated.dayOfMonth, same(cron.dayOfMonth));
@@ -395,12 +429,12 @@ void main() {
 
     test("a list with a single field formats like the field alone", () {
       final cron = Cron(
-        second: CronFieldValue("0", 0),
-        minute: CronFieldList("5", [CronFieldValue("5", 5)]),
-        hour: CronFieldWildcard("*"),
-        dayOfMonth: CronFieldWildcard("*"),
-        month: CronFieldWildcard("*"),
-        dayOfWeek: CronFieldWildcard("*"),
+        second: CronFieldValue(0),
+        minute: CronFieldList([CronFieldValue(5)]),
+        hour: CronFieldWildcard(),
+        dayOfMonth: CronFieldWildcard(),
+        month: CronFieldWildcard(),
+        dayOfWeek: CronFieldWildcard(),
       );
       expect(cron.toPrettyString(), "At minute 5.");
     });
@@ -422,17 +456,12 @@ void main() {
       );
     });
 
-    test("a day of week value with no name falls back to its number", () {
-      final cron = Cron.parse("0 0 12 * * 7");
-      expect(cron.toPrettyString(), "At minute 0 past hour 12 on 7.");
+    test("an out-of-range day of week value throws ArgumentError", () {
+      expect(() => Cron.parse("0 0 12 * * 7"), throwsArgumentError);
     });
 
-    test("a month value with no name falls back to its number", () {
-      final cron = Cron.parse("0 0 0 1 13 *");
-      expect(
-        cron.toPrettyString(),
-        "At minute 0 past hour 0 on day of the month 1 in 13.",
-      );
+    test("an out-of-range month value throws ArgumentError", () {
+      expect(() => Cron.parse("0 0 0 1 13 *"), throwsArgumentError);
     });
   });
 
@@ -442,7 +471,7 @@ void main() {
       final from = DateTime(2026, 8, 18, 6, 0, 0);
       final result = cron.next(from);
       expect(result.next, DateTime(2026, 8, 18, 12, 0, 0));
-      expect(result.isIn, const Duration(hours: 6));
+      expect(result.delay, const Duration(hours: 6));
     });
 
     test("rolls over to the next day", () {
@@ -527,19 +556,25 @@ void main() {
       expect(result.next, DateTime(2027));
     });
 
-    test("throws StateError when no match exists in range", () {
-      final cron = Cron.parse("0 0 31 2 *"); // Feb never has 31 days
-      expect(() => cron.next(DateTime(2026, 1, 1)), throwsA(isA<StateError>()));
-    });
+    test(
+      "throws SchedulerOutOfReachException when no match exists in range",
+      () {
+        final cron = Cron.parse("0 0 31 2 *"); // Feb never has 31 days
+        expect(
+          () => cron.next(DateTime(2026, 1, 1)),
+          throwsA(isA<SchedulerOutOfReachException>()),
+        );
+      },
+    );
 
     test(
-      "throws StateError when maxYearsToSearch is too small to find a match",
+      "throws SchedulerOutOfReachException when maxYearsToSearch is too small to find a match",
       () {
         final cron = Cron.parse("0 0 29 2 *"); // next leap day is 2028
         final from = DateTime(2026, 3, 1);
         expect(
           () => cron.next(from, maxYearsToSearch: 1),
-          throwsA(isA<StateError>()),
+          throwsA(isA<SchedulerOutOfReachException>()),
         );
       },
     );
@@ -563,16 +598,31 @@ void main() {
     });
 
     test("requires exactly 7 weekdays", () {
-      expect(
-        () => _makeL10n(weekdays: const ["Sunday"]),
-        throwsA(isA<AssertionError>()),
-      );
+      expect(() => _makeL10n(weekdays: const ["Sunday"]), throwsArgumentError);
     });
 
     test("requires exactly 12 months", () {
+      expect(() => _makeL10n(months: const ["January"]), throwsArgumentError);
+    });
+
+    test("requires an 'every' entry for every CronUnitKind", () {
       expect(
-        () => _makeL10n(months: const ["January"]),
-        throwsA(isA<AssertionError>()),
+        () => _makeL10n(every: const {CronUnitKind.second: "every"}),
+        throwsArgumentError,
+      );
+    });
+
+    test("requires an 'of' entry for every CronUnitKind", () {
+      expect(
+        () => _makeL10n(of: const {CronUnitKind.second: "of"}),
+        throwsArgumentError,
+      );
+    });
+
+    test("requires a unitNames entry for every CronUnitKind", () {
+      expect(
+        () => _makeL10n(unitNames: const {CronUnitKind.second: "second"}),
+        throwsArgumentError,
       );
     });
   });

@@ -189,6 +189,16 @@ void main() {
         final s = TaskProgress(progress: 0.5, message: "hi").toString();
         expect(s, contains("hi"));
       });
+
+      test("includes step and steps when set", () {
+        final s = TaskProgress(
+          progress: 0.5,
+          step: "downloading",
+          steps: const ["downloading", "extracting"],
+        ).toString();
+        expect(s, contains("step: downloading"));
+        expect(s, contains("steps: [downloading, extracting]"));
+      });
     });
 
     group("set()", () {
@@ -196,6 +206,19 @@ void main() {
         final p = TaskProgress(progress: 0.5);
         expect(p.set, throwsStateError);
       });
+    });
+  });
+
+  group("TaskProgressCommunicator", () {
+    test("toString includes the current progress and isClosed", () async {
+      final instance = await ProgressToStringTask().spawn();
+      addTearDown(instance.close);
+
+      final (_, future) = instance.invoke(null);
+      final result = await future;
+      expect(result, contains("TaskProgressCommunicator("));
+      expect(result, contains("progress:"));
+      expect(result, contains("isClosed:"));
     });
   });
 

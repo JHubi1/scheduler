@@ -87,7 +87,7 @@ void main() {
         "instead of leaving them pending forever", () async {
       final scheduler = Scheduler([
         EchoTask(),
-      ], config: const SchedulerConfig(simultaneousInvocations: 0));
+      ], config: const SchedulerConfig(simultaneousInvocations: 1));
       addTearDown(scheduler.close);
 
       final queued = [

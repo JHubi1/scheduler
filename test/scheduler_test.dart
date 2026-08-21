@@ -61,6 +61,16 @@ void main() {
         );
       });
 
+      test(
+        "throws a friendly StateError for a task id/type mismatch",
+        () async {
+          await expectLater(
+            scheduler.invokeNamed<int, int>("echoTask", 5),
+            throwsA(isA<StateError>()),
+          );
+        },
+      );
+
       test("forwards processQueueLockAssert to invoke", () async {
         final queued = scheduler.invokeNamed<String, String>(
           "echoTask",
@@ -212,11 +222,16 @@ void main() {
         () async {
           final scheduler = Scheduler([
             EchoTask(),
-          ], config: const SchedulerConfig(simultaneousInvocations: 0));
+          ], config: const SchedulerConfig(simultaneousInvocations: 5));
           addTearDown(scheduler.close);
 
           final pending = scheduler
-              .invoke<String, String>(EchoTask, "hello")
+              .invoke<String, String>(
+                EchoTask,
+                "hello",
+                processQueue: false,
+                processQueueLockAssert: false,
+              )
               .output;
 
           scheduler.config = const SchedulerConfig(simultaneousInvocations: 5);
@@ -230,7 +245,7 @@ void main() {
         "task is not started and its future stays pending when processQueue is false",
         () async {
           final scheduler = Scheduler([EchoTask()]);
-          addTearDown(scheduler.close);
+          addTearDown(() => scheduler.close(silent: true));
 
           var completed = false;
           scheduler
@@ -422,17 +437,14 @@ void main() {
           addTearDown(scheduler.close);
 
           Object? caughtError;
-          runZonedGuarded(
-            () {
-              scheduler.invoke<String, String>(
-                EchoTask,
-                "stuck",
-                processQueue: false,
-                processQueueLockAssert: false,
-              );
-            },
-            (error, stack) => caughtError = error,
-          );
+          runZonedGuarded(() {
+            scheduler.invoke<String, String>(
+              EchoTask,
+              "stuck",
+              processQueue: false,
+              processQueueLockAssert: false,
+            );
+          }, (error, stack) => caughtError = error);
 
           await Future.delayed(const Duration(seconds: 6));
           expect(caughtError, isNull);
@@ -591,7 +603,7 @@ void main() {
               Scheduler([
                   RestorableTask(),
                   EchoTask(),
-                ], config: const SchedulerConfig(simultaneousInvocations: 0))
+                ], config: const SchedulerConfig(simultaneousInvocations: 1))
                 ..invoke<String, String>(
                   RestorableTask,
                   "keep",
@@ -604,7 +616,7 @@ void main() {
                   processQueue: false,
                   processQueueLockAssert: false,
                 );
-          addTearDown(scheduler.close);
+          addTearDown(() => scheduler.close(silent: true));
 
           final state = scheduler.restorableState();
           final invocations = state["invocations"]! as List;
@@ -625,9 +637,13 @@ void main() {
                 "task": "restorableTask",
                 "input": "restored",
                 "priority": 0,
+                "allowRestoration": true,
+                "queueExpiration": null,
                 "wasRunning": false,
+                "_addedToQueue": null,
               },
             ],
+            "waitList": <Object?>[],
           };
 
           final scheduler = Scheduler.fromRestorableState(tasks, state);
@@ -647,6 +663,7 @@ void main() {
             "config": const SchedulerConfig().toJson(),
             "taskIds": ["restorableTask", "noSuchTask"],
             "invocations": <Object?>[],
+            "waitList": <Object?>[],
           };
 
           expect(
@@ -668,9 +685,13 @@ void main() {
                 "task": "echoTask",
                 "input": "x",
                 "priority": 0,
+                "allowRestoration": true,
+                "queueExpiration": null,
                 "wasRunning": false,
+                "_addedToQueue": null,
               },
             ],
+            "waitList": <Object?>[],
           };
 
           expect(
@@ -705,6 +726,439 @@ void main() {
           expect(config.simultaneousInvocations, 2);
         },
       );
+
+      test("restorableState serializes a still-waiting delayed invocation", () {
+        final scheduler = Scheduler([RestorableTask()]);
+        addTearDown(() => scheduler.close(silent: true));
+
+        scheduler.delayed<String, String>(
+          RestorableTask,
+          "x",
+          const Duration(minutes: 1),
+        );
+
+        final state = scheduler.restorableState();
+        final waitList = state["waitList"]! as List;
+        expect(waitList, hasLength(1));
+        final entry = waitList.single! as Map;
+        expect(entry["task"], "restorableTask");
+        expect(entry["input"], "x");
+        expect(entry["cron"], isNull);
+        expect(entry["delay"], const Duration(minutes: 1).inMilliseconds);
+      });
+    });
+
+    group("fromRestorableState wait list", () {
+      test("restores a queued delayed invocation and lets it run", () async {
+        final tasks = [RestorableTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "restorableTask",
+              "input": "restored",
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 200,
+              "dateTime": now
+                  .add(const Duration(milliseconds: 200))
+                  .toIso8601String(),
+              "cron": null,
+              "cronReoccurrencesRemaining": null,
+              "_addedToWaitList": now.toIso8601String(),
+            },
+          ],
+        };
+
+        final scheduler = Scheduler.fromRestorableState(tasks, state);
+        addTearDown(() => scheduler.close(silent: true));
+
+        expect(scheduler.queueWaitList, hasLength(1));
+        await _waitUntil(() => scheduler.running.contains("restorableTask"));
+        expect(scheduler.queueWaitList, isEmpty);
+      });
+
+      test("restores a cron wait list entry with its Cron expression", () {
+        final tasks = [RestorableTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "restorableTask",
+              "input": "restored",
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 60000,
+              "dateTime": now.add(const Duration(minutes: 1)).toIso8601String(),
+              "cron": "* * * * * *",
+              "cronReoccurrencesRemaining": 3,
+              "_addedToWaitList": now.toIso8601String(),
+            },
+          ],
+        };
+
+        final scheduler = Scheduler.fromRestorableState(tasks, state);
+        addTearDown(() => scheduler.close(silent: true));
+
+        expect(scheduler.cronTasks, hasLength(1));
+        final task = scheduler.cronTasks.single;
+        expect(task.cron, Cron.parse("* * * * * *"));
+        expect(task.cronReoccurrencesRemaining, 3);
+      });
+
+      test("skips a wait list entry whose scheduled time already passed", () {
+        final tasks = [RestorableTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "restorableTask",
+              "input": "restored",
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 1000,
+              "dateTime": now
+                  .subtract(const Duration(seconds: 5))
+                  .toIso8601String(),
+              "cron": null,
+              "cronReoccurrencesRemaining": null,
+              "_addedToWaitList": now
+                  .subtract(const Duration(seconds: 6))
+                  .toIso8601String(),
+            },
+          ],
+        };
+
+        final scheduler = Scheduler.fromRestorableState(tasks, state);
+        addTearDown(() => scheduler.close(silent: true));
+
+        expect(scheduler.queueWaitList, isEmpty);
+      });
+
+      test("throws ArgumentError for an unknown task id in the wait list", () {
+        final tasks = [RestorableTask()];
+        final now = DateTime.now();
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {
+              "task": "unknownTask",
+              "input": "x",
+              "priority": 0,
+              "allowRestoration": true,
+              "queueExpiration": null,
+              "wasRunning": false,
+              "_addedToQueue": null,
+              "delay": 1000,
+              "dateTime": now.add(const Duration(seconds: 5)).toIso8601String(),
+              "cron": null,
+              "cronReoccurrencesRemaining": null,
+              "_addedToWaitList": now.toIso8601String(),
+            },
+          ],
+        };
+
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        "throws ArgumentError for a non-restorable task in the wait list",
+        () {
+          final tasks = [EchoTask()];
+          final now = DateTime.now();
+          final state = {
+            "config": const SchedulerConfig().toJson(),
+            "taskIds": ["echoTask"],
+            "invocations": <Object?>[],
+            "waitList": [
+              {
+                "task": "echoTask",
+                "input": "x",
+                "priority": 0,
+                "allowRestoration": true,
+                "queueExpiration": null,
+                "wasRunning": false,
+                "_addedToQueue": null,
+                "delay": 1000,
+                "dateTime": now
+                    .add(const Duration(seconds: 5))
+                    .toIso8601String(),
+                "cron": null,
+                "cronReoccurrencesRemaining": null,
+                "_addedToWaitList": now.toIso8601String(),
+              },
+            ],
+          };
+
+          expect(
+            () => Scheduler.fromRestorableState(tasks, state),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test("throws ArgumentError for a malformed wait list entry", () {
+        final tasks = [RestorableTask()];
+        final state = {
+          "config": const SchedulerConfig().toJson(),
+          "taskIds": ["restorableTask"],
+          "invocations": <Object?>[],
+          "waitList": [
+            {"task": "restorableTask"},
+          ],
+        };
+
+        expect(
+          () => Scheduler.fromRestorableState(tasks, state),
+          throwsArgumentError,
+        );
+      });
+    });
+
+    group("delayed", () {
+      late Scheduler scheduler;
+      setUp(() => scheduler = Scheduler([EchoTask()]));
+      tearDown(() => scheduler.close());
+
+      test(
+        "queues the invocation immediately but only runs it after the delay",
+        () async {
+          final future = scheduler.delayed<String, String>(
+            EchoTask,
+            "hello",
+            const Duration(milliseconds: 200),
+          );
+
+          expect(scheduler.queueWaitList, hasLength(1));
+          expect(scheduler.running, isEmpty);
+
+          final status = await future;
+          expect(await status.output, "hello");
+          expect(scheduler.queueWaitList, isEmpty);
+        },
+      );
+
+      test(
+        "throws ArgumentError when delay is not greater than zero",
+        () async {
+          await expectLater(
+            scheduler.delayed<String, String>(EchoTask, "x", Duration.zero),
+            throwsArgumentError,
+          );
+        },
+      );
+
+      test("throws ArgumentError for an unknown task type", () async {
+        await expectLater(
+          scheduler.delayed<Duration, String>(
+            DelayedTask,
+            Duration.zero,
+            const Duration(seconds: 1),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        "throws a friendly StateError for a task type/generic mismatch",
+        () async {
+          await expectLater(
+            scheduler.delayed<int, int>(
+              EchoTask,
+              5,
+              const Duration(milliseconds: 200),
+            ),
+            throwsA(isA<StateError>()),
+          );
+        },
+      );
+
+      test(
+        "supports a catchError callback alongside a successful invocation",
+        () async {
+          var catchErrorCalled = false;
+          final status = await scheduler.delayed<String, String>(
+            EchoTask,
+            "x",
+            const Duration(milliseconds: 50),
+            catchError: (error, stackTrace) {
+              catchErrorCalled = true;
+              throw error;
+            },
+          );
+
+          expect(await status.output, "x");
+          expect(catchErrorCalled, isFalse);
+        },
+      );
+    });
+
+    group("cron", () {
+      late Scheduler scheduler;
+      setUp(() => scheduler = Scheduler([VoidTask()]));
+      // cron() doesn't expose a future to the caller, so a still-recurring
+      // invocation is left uncompleted; close silently to avoid an unhandled
+      // completer error on teardown.
+      tearDown(() => scheduler.close(silent: true));
+
+      test("schedules the task and exposes it via cronTasks immediately", () {
+        scheduler.cron<int>(
+          VoidTask,
+          1,
+          Cron.parse("* * * * * *"),
+          cronId: "myCron",
+          cronReoccurrences: 2,
+        );
+
+        expect(scheduler.cronTasks, hasLength(1));
+        final task = scheduler.cronTasks.single;
+        expect(task.cronId, "myCron");
+        expect(task.cron, Cron.parse("* * * * * *"));
+        expect(task.cronReoccurrencesRemaining, 2);
+      });
+
+      test(
+        "recurs the configured number of times, then stops",
+        () async {
+          scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronReoccurrences: 2,
+          );
+          expect(scheduler.cronTasks.single.cronReoccurrencesRemaining, 2);
+
+          await _waitUntil(() => scheduler.cronTasks.isEmpty);
+          expect(scheduler.cronTasks, isEmpty);
+        },
+        timeout: const Timeout(Duration(seconds: 10)),
+      );
+
+      test("recurs indefinitely when cronReoccurrences is null", () {
+        scheduler.cron<int>(VoidTask, 1, Cron.parse("* * * * * *"));
+        expect(scheduler.cronTasks.single.cronReoccurrencesRemaining, isNull);
+      });
+
+      test("throws ArgumentError for an unknown task type", () {
+        expect(
+          () => scheduler.cron<Duration>(
+            DelayedTask,
+            Duration.zero,
+            Cron.parse("* * * * * *"),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test("throws a friendly StateError for a task type/generic mismatch", () {
+        final mismatchScheduler = Scheduler([VoidTask(), EchoTask()]);
+        addTearDown(() => mismatchScheduler.close(silent: true));
+
+        expect(
+          () => mismatchScheduler.cron<int>(
+            EchoTask,
+            1,
+            Cron.parse("* * * * * *"),
+          ),
+          throwsA(isA<StateError>()),
+        );
+      });
+
+      test("throws ArgumentError when startTime is not in the future", () {
+        expect(
+          () => scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            startTime: DateTime.now().subtract(const Duration(seconds: 1)),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test("throws ArgumentError when cronId is not camelCase", () {
+        expect(
+          () => scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronId: "Not Camel",
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test("throws ArgumentError when cronReoccurrences is not positive", () {
+        expect(
+          () => scheduler.cron<int>(
+            VoidTask,
+            1,
+            Cron.parse("* * * * * *"),
+            cronReoccurrences: 0,
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        "stops recurring once the scheduler is closed while the cron task is waiting",
+        () async {
+          scheduler.cron<int>(VoidTask, 1, Cron.parse("* * * * * *"));
+          expect(scheduler.cronTasks, hasLength(1));
+
+          await scheduler.close(silent: true);
+          expect(scheduler.queueWaitList, isEmpty);
+        },
+      );
+
+      test(
+        "allowRestoration defaults to false and is excluded from restorableState",
+        () {
+          scheduler.cron<int>(VoidTask, 1, Cron.parse("* * * * * *"));
+
+          final state = scheduler.restorableState();
+          expect(state["waitList"], isEmpty);
+        },
+      );
     });
   });
+}
+
+/// Polls [condition] until it returns `true`, or throws a [TimeoutException]
+/// if it doesn't within [timeout].
+Future<void> _waitUntil(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 5),
+  Duration interval = const Duration(milliseconds: 50),
+}) async {
+  final stopwatch = Stopwatch()..start();
+  while (!condition()) {
+    if (stopwatch.elapsed > timeout) {
+      throw TimeoutException("Condition not met within $timeout.");
+    }
+    await Future.delayed(interval);
+  }
 }

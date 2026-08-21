@@ -103,6 +103,18 @@ class GetSetTask extends Task<String, String> {
   }
 }
 
+/// Returns the string representation of its [TaskProgressCommunicator].
+class ProgressToStringTask extends Task<Null, String> {
+  @override
+  String get id => "progressToStringTask";
+  @override
+  bool get allowSimultaneous => true;
+
+  @override
+  FutureOr<String> invoke(Null input, TaskProgressCommunicator progress) =>
+      progress.toString();
+}
+
 /// Task exposing all standard metadata fields plus one custom key.
 class RichMetadataTask extends Task<String, String> {
   @override
@@ -181,6 +193,18 @@ class AlwaysFailingRetryableTask extends Task<String, String> {
     attempts++;
     throw Exception("Attempt $attempts failed");
   }
+}
+
+/// Void-output task, used for [Scheduler.cron] and [Scheduler.delayed] tests
+/// which require a `Task<I, void>`.
+class VoidTask extends Task<int, void> {
+  @override
+  String get id => "voidTask";
+  @override
+  bool get allowSimultaneous => true;
+
+  @override
+  FutureOr<void> invoke(int input, TaskProgressCommunicator progress) {}
 }
 
 /// Echo task that allows its state to be restored, used for

@@ -186,4 +186,83 @@ void main() {
       );
     });
   });
+
+  group("kCamelCasePattern", () {
+    test("matches simple camelCase identifiers", () {
+      expect(kCamelCasePattern.hasMatch("echoTask"), isTrue);
+      expect(kCamelCasePattern.hasMatch("a"), isTrue);
+      expect(kCamelCasePattern.hasMatch("myLongTaskName123"), isTrue);
+    });
+
+    test("rejects PascalCase, snake_case and empty strings", () {
+      expect(kCamelCasePattern.hasMatch("EchoTask"), isFalse);
+      expect(kCamelCasePattern.hasMatch("echo_task"), isFalse);
+      expect(kCamelCasePattern.hasMatch(""), isFalse);
+    });
+
+    test("rejects identifiers starting with a digit or uppercase", () {
+      expect(kCamelCasePattern.hasMatch("1task"), isFalse);
+      expect(kCamelCasePattern.hasMatch("Task"), isFalse);
+    });
+
+    test("rejects a trailing uppercase letter with no following character", () {
+      expect(kCamelCasePattern.hasMatch("echoA"), isFalse);
+    });
+
+    test("rejects consecutive uppercase letters (no acronyms)", () {
+      expect(kCamelCasePattern.hasMatch("echoABTask"), isFalse);
+    });
+  });
+
+  group("castErrorParser", () {
+    test("parses a real failed-cast TypeError into a StateError", () {
+      late final Object error;
+      try {
+        final dynamic value = 5;
+        value as String;
+      } catch (e) {
+        error = e;
+      }
+
+      final parsed = castErrorParser(error);
+      expect(parsed, isA<StateError>());
+      expect(
+        parsed!.message,
+        "Task int does not match <I, O> of <String>, the passed input and "
+        "output types.",
+      );
+    });
+
+    test("extracts the inner generic type argument, e.g. from a List<int>", () {
+      late final Object error;
+      try {
+        final dynamic value = "hello";
+        value as List<int>;
+      } catch (e) {
+        error = e;
+      }
+
+      final parsed = castErrorParser(error);
+      expect(parsed, isA<StateError>());
+      expect(parsed!.message, contains("<int>"));
+    });
+
+    test("returns null for an unrelated error", () {
+      expect(castErrorParser(Exception("boom")), isNull);
+    });
+
+    test("returns null for null", () {
+      expect(castErrorParser(null), isNull);
+    });
+
+    test(
+      "returns null for a string that merely resembles the cast error format",
+      () {
+        expect(
+          castErrorParser("type 'int' is definitely not a subtype here"),
+          isNull,
+        );
+      },
+    );
+  });
 }

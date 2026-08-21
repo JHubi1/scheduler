@@ -5,10 +5,16 @@ import 'dart:io';
 import 'package:scheduler/scheduler.dart';
 import 'package:scheduler/tasks.dart';
 
-final mode = "json";
+final mode = "cron";
 
 void main() async {
-  final tasks = <Task>[JsonDecoder(), DelayedEchoTask(), ThreeTimesTheCharm()];
+  final tasks = <Task>[
+    JsonDecoder(),
+    DelayedEchoTask(),
+    ThreeTimesTheCharm(),
+    DelayedModeResponse(),
+    CronTest(),
+  ];
   final scheduler = Scheduler(tasks);
   ProgressSnatcher.instance.addListener((progress) => print("> $progress"));
 
@@ -52,6 +58,46 @@ void main() async {
       );
       exit(1);
     });
+  } else if (mode == "delayed") {
+    final then = DateTime.now();
+    print(
+      "Invoking delayed echo at ${then.toIso8601String().split(".").first}",
+    );
+    final newScheduler = Scheduler(tasks)
+      ..delayed(DelayedModeResponse, null, Duration(seconds: 10));
+    await Future.delayed(Duration(seconds: 5));
+    final state = newScheduler.restorableState();
+    await newScheduler.close(silent: true, graceful: false, kill: true);
+
+    final now = DateTime.now();
+    print(
+      "Closed scheduler after ${DateTime.now().difference(then).inSeconds} seconds, waiting...",
+    );
+    await Future.delayed(Duration(seconds: 2));
+    print(
+      "Restoring scheduler after ${DateTime.now().difference(now).inSeconds} seconds...",
+    );
+
+    final afterNow = DateTime.now();
+    final restoredScheduler = Scheduler.fromRestorableState(tasks, state);
+    print(
+      (await (await restoredScheduler.queueWaitList.first.completer.future)
+              .future)
+          .success
+          ?.output,
+    );
+    print(
+      "This took ${DateTime.now().difference(afterNow).inSeconds} mores seconds to complete (${DateTime.now().difference(then).inSeconds} seconds in total).",
+    );
+    restoredScheduler.close();
+  } else if (mode == "cron") {
+    scheduler.cron(
+      CronTest,
+      null,
+      Cron.parse("0-59/5 * * * * *"),
+      cronReoccurrences: 3,
+    );
+    await Future.delayed(const Duration(seconds: 20));
   } else {
     print(
       (await (await scheduler.invoke(
@@ -132,4 +178,31 @@ class ThreeTimesTheCharm extends Task<String, String> {
     progress.get().copyWith(step: () => "Success!").set();
     return input;
   }
+}
+
+class DelayedModeResponse extends Task<Null, String> {
+  @override
+  String get id => "delayedModeResponse";
+  @override
+  bool get allowSimultaneous => true;
+  @override
+  bool get allowRestoration => true;
+
+  @override
+  String invoke(input, progress) =>
+      "Executed echo at ${DateTime.now().toIso8601String().split(".").first}";
+}
+
+class CronTest extends Task<void, void> {
+  @override
+  String get id => "cronTest";
+  @override
+  bool get allowSimultaneous => true;
+  @override
+  bool get allowRestoration => true;
+
+  @override
+  void invoke(input, progress) => print(
+    "Executed cron test at ${DateTime.now().toIso8601String().split(".").first}",
+  );
 }

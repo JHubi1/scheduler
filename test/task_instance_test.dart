@@ -15,6 +15,21 @@ class _ValidatableTask extends Task<String, String> {
       input;
 }
 
+/// Lets tests construct a Task with an arbitrary displayName/metadata to
+/// exercise validation.
+class _ValidatableMetadataTask extends Task<String, String> {
+  @override
+  String get id => "validatableMetadataTask";
+  @override
+  final String? displayName;
+  @override
+  final Map<String, String> metadata;
+  _ValidatableMetadataTask({this.displayName, this.metadata = const {}});
+  @override
+  FutureOr<String> invoke(String input, TaskProgressCommunicator progress) =>
+      input;
+}
+
 /// Task for testing the keywords edge-case in [TaskMetadata._fromMap].
 class _SparseKeywordsTask extends Task<String, String> {
   @override
@@ -64,6 +79,40 @@ void main() {
 
       test("rejects empty id", () {
         expect(() => _ValidatableTask(""), throwsArgumentError);
+      });
+    });
+
+    group("displayName/metadata validation", () {
+      test("accepts a null displayName", () {
+        expect(_ValidatableMetadataTask.new, returnsNormally);
+      });
+
+      test("accepts a non-empty displayName", () {
+        expect(
+          () => _ValidatableMetadataTask(displayName: "My Task"),
+          returnsNormally,
+        );
+      });
+
+      test("rejects an empty (non-null) displayName", () {
+        expect(
+          () => _ValidatableMetadataTask(displayName: ""),
+          throwsArgumentError,
+        );
+      });
+
+      test("accepts metadata with non-empty values", () {
+        expect(
+          () => _ValidatableMetadataTask(metadata: const {"priority": "1"}),
+          returnsNormally,
+        );
+      });
+
+      test("rejects metadata containing an empty value", () {
+        expect(
+          () => _ValidatableMetadataTask(metadata: const {"priority": ""}),
+          throwsArgumentError,
+        );
       });
     });
 

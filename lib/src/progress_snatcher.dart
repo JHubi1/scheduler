@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'tasks.dart';
 
+/// A pattern that matches camelCase strings, which are used for task IDs.
+final kCamelCasePattern = RegExp(r"^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$");
+
 /// A singleton that automatically listens to all TaskProgressBroadcasters and
 /// forwards their progress updates to its own listeners.
 ///
@@ -107,4 +110,21 @@ class ProgressSnatcher {
     _activeProgressBroadcasters.clear();
     _instance = null;
   }
+}
+
+StateError? castErrorParser(Object? error) {
+  final parts = error.toString().split("'");
+  if (parts.length != 5 ||
+      parts[0] != "type " ||
+      parts[2] != " is not a subtype of type " ||
+      parts[4] != " in type cast") {
+    return null;
+  }
+
+  final type = parts[1];
+  final subtype = "<${parts[3].split("<").last.split(">").first}>";
+
+  return StateError(
+    "Task $type does not match <I, O> of $subtype, the passed input and output types.",
+  );
 }

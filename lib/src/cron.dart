@@ -1,30 +1,30 @@
 import 'package:meta/meta.dart';
 
+enum _CronFieldType {
+  second(0, 59),
+  minute(0, 59),
+  hour(0, 23),
+  dayOfMonth(1, 31),
+  month(1, 12),
+  dayOfWeek(0, 6);
+
+  final int min;
+  final int max;
+
+  const _CronFieldType(this.min, this.max);
+}
+
+/// A single field of a cron expression.
 sealed class CronField {
-  /// The raw string representation of the cron field.
-  ///
-  /// This field is not validated when passed to the constructor, meaning it
-  /// should not be trusted directly. Instead, use the [format] method to get a
-  /// reconstructed string representation.
-  final String raw;
-
-  CronField(this.raw) {
-    if (raw.isEmpty) {
-      throw ArgumentError.value(raw, "raw", "Cron field cannot be empty.");
-    }
-  }
-
-  CronField copyWith({String? raw}) => _parse(raw ?? this.raw);
-
-  static CronField _parse(String raw) {
+  static CronField _parse(String raw, _CronFieldType? type) {
     if (raw.isEmpty) {
       throw ArgumentError.value(raw, "raw", "Cron field cannot be empty.");
     } else if (raw == "*") {
-      return CronFieldWildcard(raw);
+      return CronFieldWildcard();
     } else if (raw.contains(",")) {
       final parts = raw.split(",");
-      final fields = parts.map(_parse).toList();
-      return CronFieldList(raw, fields);
+      final fields = parts.map((p) => _parse(p, type)).toList();
+      return CronFieldList(fields);
     } else if (raw.contains("/")) {
       final parts = raw.split("/");
       if (parts.length != 2) {
@@ -34,7 +34,7 @@ sealed class CronField {
           "Cron field with step must have exactly one '/' character.",
         );
       }
-      final base = _parse(parts[0]);
+      final base = _parse(parts[0], type);
       final step = int.tryParse(parts[1]);
       if (step == null) {
         throw ArgumentError.value(
@@ -43,7 +43,7 @@ sealed class CronField {
           "Cron field step must be an integer.",
         );
       }
-      return CronFieldStep(raw, base, step);
+      return CronFieldStep(base, step);
     } else if (raw.contains("-")) {
       final parts = raw.split("-");
       if (parts.length != 2) {
@@ -53,9 +53,9 @@ sealed class CronField {
           "Cron field range must have exactly one '-' character.",
         );
       }
-      final start = _parse(parts[0]);
-      final end = _parse(parts[1]);
-      return CronFieldRange(raw, start, end);
+      final start = _parse(parts[0], type);
+      final end = _parse(parts[1], type);
+      return CronFieldRange(start, end);
     } else {
       final value = int.tryParse(raw);
       if (value == null) {
@@ -64,27 +64,47 @@ sealed class CronField {
           "raw",
           "Cron field value must be an integer.",
         );
+      } else if (type != null && (value < type.min || value > type.max)) {
+        throw ArgumentError.value(
+          value,
+          "raw",
+          "Cron field value of type '${type.name}' must be between ${type.min} and ${type.max}",
+        );
       }
-      return CronFieldValue(raw, value);
+      return CronFieldValue(value);
     }
   }
+
+  bool _validateSizeOfValues(_CronFieldType type);
 
   /// Returns the raw string representation of the cron field.
   ///
   /// This is different to [raw] as it is validated and reconstructed from the
   /// parsed representation of the cron field.
   @mustBeOverridden
-  String format() => raw;
+  String format();
+
+  /// Create a copy of the current [CronField] with the given [raw] string.
+  CronField copyWith();
 
   @override
   @mustBeOverridden
   String toString() {
     final buffer = StringBuffer()
       ..write("CronField(")
-      ..write("raw: $raw")
       ..write(")");
     return buffer.toString();
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CronField &&
+          runtimeType == other.runtimeType &&
+          format() == other.format();
+
+  @override
+  int get hashCode => format().hashCode;
 }
 
 /// A cron field that represents a list of values.
@@ -96,7 +116,17 @@ sealed class CronField {
 final class CronFieldList extends CronField {
   final List<CronField> fields;
 
-  CronFieldList(super.raw, this.fields);
+  CronFieldList(this.fields);
+
+  @override
+  bool _validateSizeOfValues(_CronFieldType type) =>
+      fields.every((f) => f._validateSizeOfValues(type))
+      ? true
+      : throw ArgumentError.value(
+          fields,
+          "fields",
+          "Cron field list contains invalid values for type '${type.name}'.",
+        );
 
   @override
   String format() {
@@ -111,11 +141,14 @@ final class CronFieldList extends CronField {
   }
 
   @override
+  CronFieldList copyWith({List<CronField>? fields}) =>
+      CronFieldList(fields ?? this.fields);
+
+  @override
   String toString() {
     final buffer = StringBuffer()
       ..write("CronFieldList(")
-      ..write("raw: $raw")
-      ..write(", fields: $fields")
+      ..write("fields: $fields")
       ..write(")");
     return buffer.toString();
   }
@@ -132,23 +165,15 @@ final class CronFieldRange extends CronField {
   final CronField start;
   final CronField end;
 
-  CronFieldRange(super.raw, this.start, this.end)
-    : assert(
-        start is CronFieldValue && end is CronFieldValue,
-        "Cron field range start and end must be values.",
-      ),
-      assert(
-        (start as CronFieldValue).value < (end as CronFieldValue).value,
-        "Cron field range start must be less than end.",
-      ) {
-    if (!(start is CronFieldValue && end is CronFieldValue)) {
+  CronFieldRange(this.start, this.end) {
+    if (start is! CronFieldValue || end is! CronFieldValue) {
       throw ArgumentError.value(
         start,
         "start",
         "Cron field range start and end must be values.",
       );
-    } else if (!((start as CronFieldValue).value <
-        (end as CronFieldValue).value)) {
+    } else if ((start as CronFieldValue).value >
+        (end as CronFieldValue).value) {
       throw ArgumentError.value(
         start,
         "start",
@@ -156,6 +181,16 @@ final class CronFieldRange extends CronField {
       );
     }
   }
+
+  @override
+  bool _validateSizeOfValues(_CronFieldType type) =>
+      start._validateSizeOfValues(type) && end._validateSizeOfValues(type)
+      ? true
+      : throw ArgumentError.value(
+          start,
+          "start",
+          "Cron field range is invalid for type '${type.name}'.",
+        );
 
   @override
   String format() {
@@ -167,11 +202,14 @@ final class CronFieldRange extends CronField {
   }
 
   @override
+  CronFieldRange copyWith({CronField? start, CronField? end}) =>
+      CronFieldRange(start ?? this.start, end ?? this.end);
+
+  @override
   String toString() {
     final buffer = StringBuffer()
       ..write("CronFieldRange(")
-      ..write("raw: $raw")
-      ..write(", start: $start")
+      ..write("start: $start")
       ..write(", end: $end")
       ..write(")");
     return buffer.toString();
@@ -189,19 +227,14 @@ final class CronFieldStep extends CronField {
   final CronField base;
   final int step;
 
-  CronFieldStep(super.raw, this.base, this.step)
-    : assert(
-        base is CronFieldWildcard || base is CronFieldRange,
-        "Cron field step base must be a wildcard or a range.",
-      ),
-      assert(step > 0, "Cron field step must be a positive integer.") {
-    if (!(base is CronFieldWildcard || base is CronFieldRange)) {
+  CronFieldStep(this.base, this.step) {
+    if (base is! CronFieldWildcard && base is! CronFieldRange) {
       throw ArgumentError.value(
         base,
         "base",
         "Cron field step base must be a wildcard or a range.",
       );
-    } else if (!(step > 0)) {
+    } else if (step <= 0) {
       throw ArgumentError.value(
         step,
         "step",
@@ -209,6 +242,16 @@ final class CronFieldStep extends CronField {
       );
     }
   }
+
+  @override
+  bool _validateSizeOfValues(_CronFieldType type) =>
+      base._validateSizeOfValues(type)
+      ? true
+      : throw ArgumentError.value(
+          base,
+          "base",
+          "Cron field step base is invalid for type '${type.name}'.",
+        );
 
   @override
   String format() {
@@ -220,11 +263,14 @@ final class CronFieldStep extends CronField {
   }
 
   @override
+  CronFieldStep copyWith({CronField? base, int? step}) =>
+      CronFieldStep(base ?? this.base, step ?? this.step);
+
+  @override
   String toString() {
     final buffer = StringBuffer()
       ..write("CronFieldStep(")
-      ..write("raw: $raw")
-      ..write(", base: $base")
+      ..write("base: $base")
       ..write(", step: $step")
       ..write(")");
     return buffer.toString();
@@ -236,27 +282,30 @@ final class CronFieldStep extends CronField {
 /// This class is used to represent a cron field that contains a wildcard value,
 /// such as "*". The wildcard value matches any value for the field.
 final class CronFieldWildcard extends CronField {
-  CronFieldWildcard(super.raw);
+  @override
+  bool _validateSizeOfValues(_CronFieldType type) => true;
 
   @override
   String format() => "*";
 
   @override
+  CronFieldWildcard copyWith() => CronFieldWildcard();
+
+  @override
   String toString() {
     final buffer = StringBuffer()
       ..write("CronFieldWildcard(")
-      ..write("raw: $raw")
       ..write(")");
     return buffer.toString();
   }
 }
 
+/// A cron field that represents a single value.
 final class CronFieldValue extends CronField {
   final int value;
 
-  CronFieldValue(super.raw, this.value)
-    : assert(value >= 0, "Cron field value must be non-negative.") {
-    if (!(value >= 0)) {
+  CronFieldValue(this.value) {
+    if (value < 0) {
       throw ArgumentError.value(
         value,
         "value",
@@ -266,14 +315,26 @@ final class CronFieldValue extends CronField {
   }
 
   @override
+  bool _validateSizeOfValues(_CronFieldType type) =>
+      value >= type.min && value <= type.max
+      ? true
+      : throw ArgumentError.value(
+          value,
+          "value",
+          "Cron field value of type '${type.name}' must be between ${type.min} and ${type.max}",
+        );
+
+  @override
   String format() => value.toString();
+
+  @override
+  CronFieldValue copyWith({int? value}) => CronFieldValue(value ?? this.value);
 
   @override
   String toString() {
     final buffer = StringBuffer()
       ..write("CronFieldValue(")
-      ..write("raw: $raw")
-      ..write(", value: $value")
+      ..write("value: $value")
       ..write(")");
     return buffer.toString();
   }
@@ -299,7 +360,14 @@ class Cron {
     required this.dayOfMonth,
     required this.month,
     required this.dayOfWeek,
-  });
+  }) {
+    second._validateSizeOfValues(_CronFieldType.second);
+    minute._validateSizeOfValues(_CronFieldType.minute);
+    hour._validateSizeOfValues(_CronFieldType.hour);
+    dayOfMonth._validateSizeOfValues(_CronFieldType.dayOfMonth);
+    month._validateSizeOfValues(_CronFieldType.month);
+    dayOfWeek._validateSizeOfValues(_CronFieldType.dayOfWeek);
+  }
 
   /// Parses a cron expression string into a [Cron] object.
   ///
@@ -324,9 +392,9 @@ class Cron {
       );
     }
 
-    final output = <CronField>[if (parts.length == 5) CronFieldValue("0", 0)];
+    final output = <CronField>[if (parts.length != 6) CronFieldValue(0)];
     for (final part in parts) {
-      output.add(CronField._parse(part));
+      output.add(CronField._parse(part, _CronFieldType.values[output.length]));
     }
 
     return Cron(
@@ -370,7 +438,10 @@ class Cron {
   ///
   /// If the expression can never match (e.g. day 31 of February), a[StateError]
   /// is thrown after searching through [maxYearsToSearch] years.
-  ({DateTime next, Duration isIn}) next(
+  ///
+  /// The function works for both UTC and local DateTime objects, and will
+  /// return a DateTime object in the same timezone as [from].
+  ({DateTime next, Duration delay}) next(
     DateTime from, {
     int maxYearsToSearch = 5,
   }) {
@@ -443,10 +514,10 @@ class Cron {
         candidate = candidate.add(const Duration(seconds: 1));
         continue;
       }
-      return (next: candidate, isIn: candidate.difference(from));
+      return (next: candidate, delay: candidate.difference(from));
     }
 
-    throw StateError(
+    throw SchedulerOutOfReachException(
       "No matching date found for cron expression '${format()}' within the search limit.",
     );
   }
@@ -712,7 +783,7 @@ class Cron {
         format(
           month,
           unitOnFirst: false,
-          prefix: lang.$in,
+          prefix: lang.inWord,
           unit: CronUnitKind.month,
           valueFormatter: (value) => value >= 1 && value <= lang.months.length
               ? lang.months[value - 1]
@@ -723,15 +794,54 @@ class Cron {
 
     return buffer.toString();
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Cron &&
+          runtimeType == other.runtimeType &&
+          second == other.second &&
+          minute == other.minute &&
+          hour == other.hour &&
+          dayOfMonth == other.dayOfMonth &&
+          month == other.month &&
+          dayOfWeek == other.dayOfWeek;
+
+  @override
+  int get hashCode =>
+      Object.hash(second, minute, hour, dayOfMonth, month, dayOfWeek);
+}
+
+/// Exception thrown when the scheduler is unable to find a matching date
+/// for a cron expression within the search limit.
+final class SchedulerOutOfReachException implements Exception {
+  final String message;
+  SchedulerOutOfReachException(this.message);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer()
+      ..write("SchedulerOutOfReachException(")
+      ..write("message: $message")
+      ..write(")");
+    return buffer.toString();
+  }
 }
 
 /// The kind of field a piece of a cron expression represents.
 ///
-/// Used by [CronPrettyStringL10n] callbacks to pick the correct grammatical
-/// form for a unit without relying on comparing translated strings.
+/// Used as the key for [CronPrettyStringL10n]'s per-unit lookups to pick the
+/// correct grammatical form for a unit without relying on comparing translated
+/// strings.
 enum CronUnitKind { second, minute, hour, dayOfMonth, month, dayOfWeek }
 
 /// Localization for the pretty string representation of a cron expression.
+///
+/// Every per-unit lookup ([every], [of] and the unit names themselves) is
+/// backed by a [Map] keyed by [CronUnitKind], validated at construction time to
+/// contain an entry for every unit. This keeps translations declarative (no
+/// manually written `switch` per language) while still failing fast, with a
+/// clear message, if a translation is incomplete.
 class CronPrettyStringL10n {
   final bool andOxfordComma;
   final String and;
@@ -739,11 +849,11 @@ class CronPrettyStringL10n {
   final String at;
   final String from;
   final String through;
-  final String Function(CronUnitKind unit) every;
-  final String Function(CronUnitKind unit) of;
   final String past;
   final String Function(bool isEvery) on;
-  final String $in;
+
+  /// The preposition used before a month name, e.g. "in" in "in January".
+  final String inWord;
 
   /// Weekday names starting at Sunday (index 0) through Saturday (index 6),
   /// matching the standard cron day-of-week numbering.
@@ -752,47 +862,82 @@ class CronPrettyStringL10n {
   /// Month names starting at January (index 0) through December (index 11).
   final List<String> months;
 
-  final String second;
-  final String minute;
-  final String hour;
-  final String dayOfMonth;
-  final String month;
-  final String dayOfWeek;
+  final Map<CronUnitKind, String> _every;
+  final Map<CronUnitKind, String> _of;
+  final Map<CronUnitKind, String> _unitNames;
 
   final String Function(int step) ordinalFormatter;
 
-  const CronPrettyStringL10n({
+  CronPrettyStringL10n({
     required this.andOxfordComma,
     required this.and,
     required this.at,
     required this.from,
     required this.through,
-    required this.every,
-    required this.of,
+    required Map<CronUnitKind, String> every,
+    required Map<CronUnitKind, String> of,
     required this.past,
     required this.on,
-    required this.$in,
+    required this.inWord,
     required this.weekdays,
     required this.months,
-    required this.second,
-    required this.minute,
-    required this.hour,
-    required this.dayOfMonth,
-    required this.month,
-    required this.dayOfWeek,
+    required Map<CronUnitKind, String> unitNames,
     required this.ordinalFormatter,
-  }) : assert(weekdays.length == 7, "weekdays must have exactly 7 entries."),
-       assert(months.length == 12, "months must have exactly 12 entries.");
+  }) : _every = every,
+       _of = of,
+       _unitNames = unitNames {
+    if (weekdays.length != 7) {
+      throw ArgumentError.value(
+        weekdays,
+        "weekdays",
+        "weekdays must have exactly 7 entries.",
+      );
+    } else if (months.length != 12) {
+      throw ArgumentError.value(
+        months,
+        "months",
+        "months must have exactly 12 entries.",
+      );
+    } else if (!_hasAllUnits(every)) {
+      throw ArgumentError.value(
+        every,
+        "every",
+        "every must have an entry for every CronUnitKind.",
+      );
+    } else if (!_hasAllUnits(of)) {
+      throw ArgumentError.value(
+        of,
+        "of",
+        "of must have an entry for every CronUnitKind.",
+      );
+    } else if (!_hasAllUnits(unitNames)) {
+      throw ArgumentError.value(
+        unitNames,
+        "unitNames",
+        "unitNames must have an entry for every CronUnitKind.",
+      );
+    }
+  }
+
+  static bool _hasAllUnits(Map<CronUnitKind, String> map) =>
+      CronUnitKind.values.every(map.containsKey);
+
+  /// Returns the word used before the unit name for an "every" expression,
+  /// e.g. "every" in "every 2nd minute".
+  String every(CronUnitKind kind) => _every[kind]!;
+
+  /// Returns the preposition used before the unit name, e.g. "of" in
+  /// "5 minutes past the hour".
+  String of(CronUnitKind kind) => _of[kind]!;
 
   /// Returns the display name for the given [kind] of field.
-  String unitName(CronUnitKind kind) => switch (kind) {
-    CronUnitKind.second => second,
-    CronUnitKind.minute => minute,
-    CronUnitKind.hour => hour,
-    CronUnitKind.dayOfMonth => dayOfMonth,
-    CronUnitKind.month => month,
-    CronUnitKind.dayOfWeek => dayOfWeek,
-  };
+  String unitName(CronUnitKind kind) => _unitNames[kind]!;
+
+  factory CronPrettyStringL10n.fromLocale(String locale) =>
+      switch (locale.split("_").first.toLowerCase()) {
+        "de" => german,
+        _ => english,
+      };
 
   static final english = CronPrettyStringL10n(
     andOxfordComma: true,
@@ -800,11 +945,11 @@ class CronPrettyStringL10n {
     at: "At",
     from: "from",
     through: "through",
-    every: (_) => "every",
-    of: (_) => "of",
+    every: _uniform("every"),
+    of: _uniform("of"),
     past: "past",
     on: (_) => "on",
-    $in: "in",
+    inWord: "in",
     weekdays: [
       "Sunday",
       "Monday",
@@ -828,12 +973,14 @@ class CronPrettyStringL10n {
       "November",
       "December",
     ],
-    second: "second",
-    minute: "minute",
-    hour: "hour",
-    dayOfMonth: "day of the month",
-    month: "month",
-    dayOfWeek: "day of the week",
+    unitNames: const {
+      CronUnitKind.second: "second",
+      CronUnitKind.minute: "minute",
+      CronUnitKind.hour: "hour",
+      CronUnitKind.dayOfMonth: "day of the month",
+      CronUnitKind.month: "month",
+      CronUnitKind.dayOfWeek: "day of the week",
+    },
     ordinalFormatter: (step) => switch (step) {
       1 => "${step}st",
       2 => "${step}nd",
@@ -845,28 +992,28 @@ class CronPrettyStringL10n {
   static final german = CronPrettyStringL10n(
     andOxfordComma: false,
     and: "und",
-    at: "In",
+    at: "Bei",
     from: "von",
     through: "bis",
-    every: (unit) => switch (unit) {
-      CronUnitKind.second => "jeder",
-      CronUnitKind.minute => "jeder",
-      CronUnitKind.hour => "jeder",
-      CronUnitKind.dayOfMonth => "jedem",
-      CronUnitKind.month => "jedem",
-      CronUnitKind.dayOfWeek => "jedem",
+    every: const {
+      CronUnitKind.second: "jeder",
+      CronUnitKind.minute: "jeder",
+      CronUnitKind.hour: "jeder",
+      CronUnitKind.dayOfMonth: "jedem",
+      CronUnitKind.month: "jedem",
+      CronUnitKind.dayOfWeek: "jedem",
     },
-    of: (unit) => switch (unit) {
-      CronUnitKind.second => "der",
-      CronUnitKind.minute => "der",
-      CronUnitKind.hour => "der",
-      CronUnitKind.dayOfMonth => "des",
-      CronUnitKind.month => "des",
-      CronUnitKind.dayOfWeek => "des",
+    of: const {
+      CronUnitKind.second: "der",
+      CronUnitKind.minute: "der",
+      CronUnitKind.hour: "der",
+      CronUnitKind.dayOfMonth: "des",
+      CronUnitKind.month: "des",
+      CronUnitKind.dayOfWeek: "des",
     },
     past: "nach",
     on: (isEvery) => isEvery ? "an" : "am",
-    $in: "im",
+    inWord: "im",
     weekdays: [
       "Sonntag",
       "Montag",
@@ -890,18 +1037,18 @@ class CronPrettyStringL10n {
       "November",
       "Dezember",
     ],
-    second: "Sekunde",
-    minute: "Minute",
-    hour: "Stunde",
-    dayOfMonth: "Monatstag",
-    month: "Monat",
-    dayOfWeek: "Wochentag",
+    unitNames: const {
+      CronUnitKind.second: "Sekunde",
+      CronUnitKind.minute: "Minute",
+      CronUnitKind.hour: "Stunde",
+      CronUnitKind.dayOfMonth: "Monatstag",
+      CronUnitKind.month: "Monat",
+      CronUnitKind.dayOfWeek: "Wochentag",
+    },
     ordinalFormatter: (step) => "$step.",
   );
-}
 
-void main(List<String> args) {
-  final cron = Cron.parse("*/20 15,45 8-18/3 5 1,6,10 1-5");
-  print(cron.toPrettyString());
-  print(cron.next(DateTime.now()));
+  static Map<CronUnitKind, String> _uniform(String value) => {
+    for (final kind in CronUnitKind.values) kind: value,
+  };
 }

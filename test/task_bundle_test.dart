@@ -14,10 +14,10 @@ void main() {
       expect(bundle.tasks.length, 2);
     });
 
-    test("throws AssertionError for duplicate task ids", () {
+    test("throws ArgumentError for duplicate task ids", () {
       expect(
         () => TaskBundle([EchoTask(), EchoTask()], startCulling: false),
-        throwsA(isA<AssertionError>()),
+        throwsArgumentError,
       );
     });
 

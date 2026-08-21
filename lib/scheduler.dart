@@ -4,6 +4,7 @@ library;
 
 export 'package:retry/retry.dart' show RetryOptions;
 
+export 'src/cron.dart' show Cron;
 export 'src/progress_snatcher.dart' show ProgressSnatcher;
 export 'src/scheduler_base.dart';
 export 'src/tasks.dart' show TaskStatusFutureExtension;
