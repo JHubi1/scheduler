@@ -273,15 +273,13 @@ final class CronTaskStatus<I extends Object?> {
   /// recorded into [progress], capped at the last 16 invocations.
   void Function(TaskProgressBroadcaster broadcaster) _recordProgress(
     void Function(TaskProgressBroadcaster progress)? progressBroadcaster,
-  ) {
-    return (broadcaster) {
-      progressBroadcaster?.call(broadcaster);
-      while (_progress.length >= 16) {
-        _progress.removeAt(0);
-      }
-      _progress.add(broadcaster);
-    };
-  }
+  ) => (progress) {
+    (progressBroadcaster ?? ProgressSnatcher.instance.auto).call(progress);
+    while (_progress.length >= 16) {
+      _progress.removeAt(0);
+    }
+    _progress.add(progress);
+  };
 
   /// Cancels the cron task, stopping any further reoccurrences.
   ///
